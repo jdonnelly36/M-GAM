@@ -67,7 +67,7 @@ def obfuscate_data(X, obfuscation_rate=0.2, missingness_model='MCAR'):
         The original unperturbed input features
     obfuscation_rate : float, optional
         The probability to remove each entry in X
-    missingness_model : str, optional
+    missingness_model : list of functions, optional
         The missingness model to follow
 
 
@@ -79,11 +79,12 @@ def obfuscate_data(X, obfuscation_rate=0.2, missingness_model='MCAR'):
     '''
     # Generate a matrix of missingness indicators with the given
     # probability of missingness
-    assert missingness_model == 'MCAR', "Error: Only MCAR missingness supported currently"
     
-    if missingness_model == 'MCAR':
+    if missingness_model is None:
         mask = np.random.choice([0, 1], p=[obfuscation_rate, 1 - obfuscation_rate], 
                                 size=X.shape)
+    else:
+        mask = missingness_model.get_mask(X)
 
     return X * mask
 
