@@ -2,6 +2,7 @@ import fastsparsegams
 import numpy as np
 import copy
 from matplotlib import pyplot as plt
+from sklearn.utils import resample
 
 def generate_data(num_samples=10, num_features=5, 
                     dgp_function=None, noise_scale=1):
@@ -128,7 +129,7 @@ def my_linear_dgp(X):
     X_copy = (X.copy() + 1) // 2
     return X_copy @ weights - np.mean(X_copy @ weights)
 
-def choose_best_gam(X_train, X_val, X_test, y_train, y_val, y_test):
+def choose_best_gam(X_train, X_val, X_test, y_train, y_val, y_test, num_bootstraps=0):
     
     # Fit fastsparse on the data with missing data
     fit_model = fastsparsegams.fit(
@@ -145,8 +146,16 @@ def choose_best_gam(X_train, X_val, X_test, y_train, y_val, y_test):
     best_ind = np.argmax(val_accs)
 
     lambda0 = fit_model.lambda_0[0][best_ind]
-    yhat_test = np.where(fit_model.predict(X_test, lambda_0=lambda0).flatten() > 0.5, 1, -1)
-    test_acc = np.mean(yhat_test == y_test)
+    test_accs = []
+    if num_bootstraps > 0:
+        for b in range(num_bootstraps):
+            bootstrap_X, bootstrap_y = resample(X_test, y_test, replace=True)
+            yhat_test = np.where(fit_model.predict(bootstrap_X, lambda_0=lambda0).flatten() > 0.5, 1, -1)
+            test_acc = np.mean(yhat_test == bootstrap_y)
+            test_accs.append(test_acc)
+    else:
+        yhat_test = np.where(fit_model.predict(X_test, lambda_0=lambda0).flatten() > 0.5, 1, -1)
+        test_accs.append(np.mean(yhat_test == y_test))
     
-    return fit_model, best_ind, test_acc
+    return fit_model, best_ind, test_accs
         
