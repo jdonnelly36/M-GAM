@@ -92,7 +92,7 @@ def obfuscate_data(X, obfuscation_rate=0.2, missingness_model='MCAR'):
 
     return X * mask
 
-def add_missingness_terms(X):
+def add_missingness_terms(X, use_inclusion_bound=False):
     '''
     This function adds features for each potentially missing
     feature, currently not considering interaction terms
@@ -101,6 +101,8 @@ def add_missingness_terms(X):
     ----------
     X : matrix (num_samples, num_features)
         The original unperturbed input features
+    use_inclusion_bound: binary
+        Whether to exclude features that are never missing
 
     Returns
     -------
@@ -116,7 +118,11 @@ def add_missingness_terms(X):
     for f in range(num_features):
         missing_term = np.zeros((num_samples, num_features))
         missing_term[:, f] = 1
-        new_cols = np.expand_dims(1 - np.abs(X[:, f]), 1) * (X + missing_term)
+        missingness_mask = np.expand_dims(1 - np.abs(X[:, f]), 1)
+        if np.sum(missingness_mask) == 0 and use_inclusion_bound:
+            continue
+        
+        new_cols = missingness_mask * (X + missing_term)
         new_cols[new_cols == -1] = 0
         X_augmented = np.concatenate([X_augmented, 
                                     np.expand_dims(1 - np.abs(X[:, f]), 1) * (X + missing_term)], 
