@@ -11,24 +11,36 @@
 
 from tqdm import tqdm
 import sys
+import numpy as np, scipy.stats as st
 sys.path.append('/home/users/jcd97/code/missing_data/fastsparsemissing/missingness-experiments')
 from experiment_utils import *
 from MAR_model import MAR_model
 import time
 
-def acc_by_missingness(missing_props, n_samples=1000, n_features=10, num_bootstraps=20):
+def ci(m_list, conf=0.95):
+    interval = st.t.interval(conf, len(m_list)-1, loc=np.mean(m_list), scale=st.sem(m_list))
+    return (interval[1] - interval[0]) / 2
+
+def acc_by_missingness(missing_props, mode='MAR', n_samples=1000, n_features=10, num_bootstraps=20):
     original_accs = []
     missing_accs = []
     augmented_accs = []
+    # Generate our data ----------
+    X_orig, y_orig = generate_data(num_features=n_features, num_samples=n_samples, 
+        dgp_function=my_linear_dgp, noise_scale=0.5)
 
     for missing_prop in tqdm(missing_props):
-        missingness_model = MAR_model([np.random.randint(2, size=(n_features)).astype(float) for i in range(n_features)], 
+        X, y = X_orig.copy(), y_orig.copy()
+        if mode == 'MAR':
+            missingness_model = MAR_model([np.random.randint(2, size=(n_features)).astype(float) for i in range(n_features)], 
                                         missing_prop)
+        else:
+            missingness_model = None
         
-        # Generate our data ----------
-        X, y = generate_data(num_features=n_features, num_samples=n_samples, 
-            dgp_function=my_linear_dgp, noise_scale=0.5)
-        X_missing = obfuscate_data(X.copy(), obfuscation_rate=missing_prop, missingness_model=missingness_model.get_mask)
+        if mode == 'MAR':
+            X_missing = obfuscate_data(X.copy(), obfuscation_rate=missing_prop, missingness_model=missingness_model.get_mask)
+        else:
+            X_missing = obfuscate_data(X.copy(), obfuscation_rate=missing_prop, missingness_model=None)
         X_augmented = add_missingness_terms(X_missing.copy())
 
         X[X == -1] = 0
@@ -77,9 +89,9 @@ def acc_by_missingness(missing_props, n_samples=1000, n_features=10, num_bootstr
                                                         num_bootstraps=num_bootstraps)
         augmented_accs.append(test_accs)
 
-    plt.errorbar(missing_props, [np.mean(o) for o in original_accs], [np.std(o) for o in original_accs], capsize=4)
-    plt.errorbar(missing_props, [np.mean(o) for o in missing_accs], [np.std(o) for o in missing_accs], capsize=4)
-    plt.errorbar(missing_props, [np.mean(o) for o in augmented_accs], [np.std(o) for o in augmented_accs], capsize=4)
+    plt.errorbar(missing_props, [np.mean(o) for o in original_accs], [ci(o) for o in original_accs], capsize=4)
+    plt.errorbar(missing_props, [np.mean(o) for o in missing_accs], [ci(o) for o in missing_accs], capsize=4)
+    plt.errorbar(missing_props, [np.mean(o) for o in augmented_accs], [ci(o) for o in augmented_accs], capsize=4)
     plt.legend(["No Missing Data", "Obfuscated", "Augmented"])
     plt.ylabel("Test Accuracy")
     plt.xlabel("Missing Probability")
@@ -94,20 +106,25 @@ def time_by_samples(n_samples, missing_prop=0.3, n_features=10, num_bootstraps=2
     original_times = [[] for i in range(len(n_samples))]
     missing_times = [[] for i in range(len(n_samples))]
     augmented_times = [[] for i in range(len(n_samples))]
+    augmented_smart_times = [[] for i in range(len(n_samples))]
+
 
     for sample_ind, sample_count in enumerate(tqdm(n_samples)):
+        X_orig, y_orig = generate_data(num_features=n_features, num_samples=sample_count, 
+            dgp_function=my_linear_dgp, noise_scale=0.5)
         missingness_model = MAR_model([np.random.randint(2, size=(n_features)).astype(float) for i in range(n_features)], 
                                         missing_prop)
         
         # Generate our data ----------
-        X, y = generate_data(num_features=n_features, num_samples=sample_count, 
-            dgp_function=my_linear_dgp, noise_scale=0.5)
+        X, y = X_orig.copy(), y_orig.copy()
         X_missing = obfuscate_data(X.copy(), obfuscation_rate=missing_prop, missingness_model=missingness_model.get_mask)
         X_augmented = add_missingness_terms(X_missing.copy())
+        X_augmented_smart = add_missingness_terms(X_missing.copy(), use_inclusion_bound=True)
 
         X[X == -1] = 0
         X_missing[X_missing == -1] = 0
         X_augmented[X_augmented == -1] = 0
+        X_augmented_smart[X_augmented_smart == -1] = 0
 
         for i in range(num_bootstraps):
             bootstrap_X, bootstrap_y = resample(X, y, replace=True)
@@ -131,30 +148,41 @@ def time_by_samples(n_samples, missing_prop=0.3, n_features=10, num_bootstraps=2
             )
             augmented_times[sample_ind].append(time.time() - start)
 
-    plt.errorbar(n_samples, [np.mean(o) for o in original_times], [np.std(o) for o in original_times], capsize=4)
-    plt.errorbar(n_samples, [np.mean(o) for o in missing_times], [np.std(o) for o in missing_times], capsize=4)
-    plt.errorbar(n_samples, [np.mean(o) for o in augmented_times], [np.std(o) for o in augmented_times], capsize=4)
-    plt.legend(["No Missing Data", "Obfuscated", "Augmented"])
+            bootstrap_X, bootstrap_y = resample(X_augmented_smart, y, replace=True)
+            start = time.time()
+            _ = fastsparsegams.fit(
+                bootstrap_X, bootstrap_y, loss="Exponential", max_support_size=20, algorithm="CDPSI"
+            )
+            augmented_smart_times[sample_ind].append(time.time() - start)
+
+    plt.errorbar(n_samples, [np.mean(o) for o in original_times], [ci(o) for o in original_times], capsize=4)
+    plt.errorbar(n_samples, [np.mean(o) for o in missing_times], [ci(o) for o in missing_times], capsize=4)
+    plt.errorbar(n_samples, [np.mean(o) for o in augmented_times], [ci(o) for o in augmented_times], capsize=4)
+    plt.errorbar(n_samples, [np.mean(o) for o in augmented_smart_times], [ci(o) for o in augmented_smart_times], capsize=4)
+    plt.legend(["No Missing Data", "Obfuscated", "Augmented", "Augmented w/ Bound"])
     plt.ylabel("Runtime")
     plt.xlabel("Number of samples")
     if missingness_model is None:
         plt.title("Runtime by Number of Samples MCAR")
-        plt.savefig(f'MCAR_runtime_by_samples_{n_features}_features.png')
+        plt.savefig(f'MCAR_runtime_by_samples_{n_features}_features_{missing_prop}_missing.png')
     else:
         plt.title("Runtime by Number of Samples MAR")
-        plt.savefig(f'MAR_runtime_by_samples_{n_features}_features.png')
+        plt.savefig(f'MAR_runtime_by_samples_{n_features}_features_{missing_prop}_missing.png')
 
 if __name__ == '__main__':
-    missing_props = [i / 20 for i in range(20)]
-    n_samples = 10_000
-    n_features = 30
-    num_bootstraps = 20
+    '''for model in ['MAR', 'MCAR']:
+        for n_features in [5, 10, 30, 50]:
+            missing_props = [i / 20 for i in range(20)]
+            n_samples = 10_000
+            num_bootstraps = 100
 
-    acc_by_missingness(missing_props, n_samples, n_features, num_bootstraps)
+            acc_by_missingness(missing_props, model, n_samples, n_features, num_bootstraps)
+            plt.clf()'''
 
-    '''missing_props = 0.2
-    n_samples = [100, 1_000, 10_000]
-    n_features = 5
-    num_bootstraps = 3
+    for missing_props in [0.1, 0.2, 0.5]:
+        for n_features in [5, 10, 30]:
+            n_samples = [100, 1_000, 10_000]
+            num_bootstraps = 20
 
-    time_by_samples(n_samples, missing_prop=missing_props, n_features=n_features, num_bootstraps=20)'''
+            time_by_samples(n_samples, missing_prop=missing_props, n_features=n_features, num_bootstraps=20)
+            plt.clf()
