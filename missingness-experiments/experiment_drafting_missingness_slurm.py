@@ -28,6 +28,14 @@ def acc_by_missingness(missing_props, mode='MAR', n_samples=1000, n_features=10,
     # Generate our data ----------
     X_orig, y_orig = generate_data(num_features=n_features, num_samples=n_samples, 
         dgp_function=my_linear_dgp, noise_scale=0.5)
+    
+    # Split it into train and test -----------------
+    train_prop = 0.6
+    val_prop = 0.2
+    dataset_labels = np.random.choice([0, 1, 2], size=(X_orig.shape[0]), p=[train_prop, val_prop, 1-train_prop-val_prop])
+    train_indices = dataset_labels == 0
+    val_indices = dataset_labels == 1
+    test_indices = dataset_labels == 2
 
     for missing_prop in tqdm(missing_props):
         X, y = X_orig.copy(), y_orig.copy()
@@ -46,14 +54,6 @@ def acc_by_missingness(missing_props, mode='MAR', n_samples=1000, n_features=10,
         X[X == -1] = 0
         X_missing[X_missing == -1] = 0
         X_augmented[X_augmented == -1] = 0
-
-        # Split it into train and test -----------------
-        train_prop = 0.6
-        val_prop = 0.2
-        dataset_labels = np.random.choice([0, 1, 2], size=(X.shape[0]), p=[train_prop, val_prop, 1-train_prop-val_prop])
-        train_indices = dataset_labels == 0
-        val_indices = dataset_labels == 1
-        test_indices = dataset_labels == 2
 
         y_train = y[train_indices]
         y_val = y[val_indices]
@@ -127,28 +127,28 @@ def time_by_samples(n_samples, missing_prop=0.3, n_features=10, num_bootstraps=2
         X_augmented_smart[X_augmented_smart == -1] = 0
 
         for i in range(num_bootstraps):
-            bootstrap_X, bootstrap_y = resample(X, y, replace=True)
+            bootstrap_X, bootstrap_y = resample(X, y, replace=True, random_state=i)
             start = time.time()
             _ = fastsparsegams.fit(
                 bootstrap_X, bootstrap_y, loss="Exponential", max_support_size=20, algorithm="CDPSI"
             )
             original_times[sample_ind].append(time.time() - start)
 
-            bootstrap_X, bootstrap_y = resample(X_missing, y, replace=True)
+            bootstrap_X, bootstrap_y = resample(X_missing, y, replace=True, random_state=i)
             start = time.time()
             _ = fastsparsegams.fit(
                 bootstrap_X, bootstrap_y, loss="Exponential", max_support_size=20, algorithm="CDPSI"
             )
             missing_times[sample_ind].append(time.time() - start)
 
-            bootstrap_X, bootstrap_y = resample(X_augmented, y, replace=True)
+            bootstrap_X, bootstrap_y = resample(X_augmented, y, replace=True, random_state=i)
             start = time.time()
             _ = fastsparsegams.fit(
                 bootstrap_X, bootstrap_y, loss="Exponential", max_support_size=20, algorithm="CDPSI"
             )
             augmented_times[sample_ind].append(time.time() - start)
 
-            bootstrap_X, bootstrap_y = resample(X_augmented_smart, y, replace=True)
+            bootstrap_X, bootstrap_y = resample(X_augmented_smart, y, replace=True, random_state=i)
             start = time.time()
             _ = fastsparsegams.fit(
                 bootstrap_X, bootstrap_y, loss="Exponential", max_support_size=20, algorithm="CDPSI"
@@ -160,8 +160,9 @@ def time_by_samples(n_samples, missing_prop=0.3, n_features=10, num_bootstraps=2
     plt.errorbar(n_samples, [np.mean(o) for o in augmented_times], [ci(o) for o in augmented_times], capsize=4)
     plt.errorbar(n_samples, [np.mean(o) for o in augmented_smart_times], [ci(o) for o in augmented_smart_times], capsize=4)
     plt.legend(["No Missing Data", "Obfuscated", "Augmented", "Augmented w/ Bound"])
-    plt.ylabel("Runtime")
+    plt.ylabel("Runtime (Seconds)")
     plt.xlabel("Number of samples")
+    plt.xscale('log')
     if missingness_model is None:
         plt.title("Runtime by Number of Samples MCAR")
         plt.savefig(f'MCAR_runtime_by_samples_{n_features}_features_{missing_prop}_missing.png')

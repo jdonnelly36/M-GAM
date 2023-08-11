@@ -155,7 +155,7 @@ def choose_best_gam(X_train, X_val, X_test, y_train, y_val, y_test, num_bootstra
     test_accs = []
     if num_bootstraps > 0:
         for b in range(num_bootstraps):
-            bootstrap_X, bootstrap_y = resample(X_test, y_test, replace=True)
+            bootstrap_X, bootstrap_y = resample(X_test, y_test, replace=True, random_state=b)
             yhat_test = np.where(fit_model.predict(bootstrap_X, lambda_0=lambda0).flatten() > 0.5, 1, -1)
             test_acc = np.mean(yhat_test == bootstrap_y)
             test_accs.append(test_acc)
