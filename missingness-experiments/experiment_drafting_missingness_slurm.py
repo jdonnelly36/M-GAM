@@ -87,6 +87,12 @@ def acc_by_missingness(missing_props, mode='MAR', n_samples=1000, n_features=10,
         fit_model, best_ind, test_accs = choose_best_gam(X_train, X_val, X_test, 
                                                         y_train, y_val, y_test, 
                                                         num_bootstraps=num_bootstraps)
+        coef_matrix = fit_model.coeff().todense()
+        print(f"For {n_samples} samples with {n_features} features and {missing_prop} missingness -----")
+        num_w_missing = np.sum(np.sum((coef_matrix[:, n_features:] != 0), axis=1) > 0)
+        print(f"{num_w_missing} out of {coef_matrix.shape[0]} models had non-zero coefficients on missingness terms")
+        #plt.savefig(f'model_viz_{n_samples}_samples_{n_features}_features_{missing_prop}_missing.png')
+        #plt.clf()
         augmented_accs.append(test_accs)
 
     plt.errorbar(missing_props, [np.mean(o) for o in original_accs], [ci(o) for o in original_accs], capsize=4)
