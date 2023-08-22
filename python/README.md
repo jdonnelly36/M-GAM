@@ -34,6 +34,12 @@ To install, ensure the proper packages are installed from `pyproject.toml` build
 pip install ".[test]"
 ```
 
+If you modify the source code, make sure to run 
+```
+pip uninstall fastsparsegams
+```
+and reinstall as before. Also note that fastsparsegams cannot be imported from the "python" directory -- either use the root directory for the repo or ./python/fastsparsegams.
+
 To test, run the following command:
 ```bash
 python -m pytest
