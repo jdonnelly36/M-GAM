@@ -14,7 +14,7 @@
 #include "arma_includes.h"
 
 template <class T>
-CDBase<T> *make_CD(const T &Xi, const arma::vec &yi, const Params<T> &P) {
+CDBase<T> *make_CD(const T &Xi, const arma::vec &yi, const Params<T> &P, const arma::vec &weights = arma::zeros<arma::vec>(2)) {
   if (P.Specs.SquaredError) {
     if (P.Specs.CD) {
       if (P.Specs.L0) {
@@ -33,9 +33,9 @@ CDBase<T> *make_CD(const T &Xi, const arma::vec &yi, const Params<T> &P) {
     }
   } else if (P.Specs.Exponential) {
     if (P.Specs.CD) {
-      return new CDL012Exponential<T>(Xi, yi, P);
+      return new CDL012Exponential<T>(Xi, yi, P, weights);
     } else if (P.Specs.PSI) {
-      return new CDL012ExponentialSwaps<T>(Xi, yi, P);
+      return new CDL012ExponentialSwaps<T>(Xi, yi, P, weights);
     }
   } else if (P.Specs.SquaredHinge) {
     if (P.Specs.CD) {

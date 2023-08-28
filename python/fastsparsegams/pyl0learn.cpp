@@ -75,12 +75,12 @@ py_fitmodel L0LearnFit_dense_wrapper(
     const unsigned int ScreenSize, const bool LambdaU,
     const std::vector<std::vector<double>> &Lambdas,
     const unsigned int ExcludeFirstK, const bool Intercept,
-    const bool withBounds, const arma::vec &Lows, const arma::vec &Highs) {
+    const bool withBounds, const arma::vec &Lows, const arma::vec &Highs, const arma::vec &weights) {
   return py_fitmodel(L0LearnFit<arma::mat>(
       X, y, Loss, Penalty, Algorithm, NnzStopNum, G_ncols, G_nrows, Lambda2Max,
       Lambda2Min, PartialSort, MaxIters, rtol, atol, ActiveSet, ActiveSetNum,
       MaxNumSwaps, ScaleDownFactor, ScreenSize, LambdaU, Lambdas, ExcludeFirstK,
-      Intercept, withBounds, Lows, Highs));
+      Intercept, withBounds, Lows, Highs, weights));
 }
 
 py_cvfitmodel L0LearnCV_dense_wrapper(

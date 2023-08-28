@@ -17,6 +17,7 @@ class Grid1D {
   Params<T> P;
   const T *X;
   const arma::vec *y;
+  arma::vec weights;
   std::size_t p;
   std::vector<std::unique_ptr<FitResult<T>>> G;
   arma::vec Lambdas;
@@ -32,16 +33,18 @@ class Grid1D {
   std::size_t NoSelectK;
 
  public:
-  Grid1D(const T &Xi, const arma::vec &yi, const GridParams<T> &PG);
+  Grid1D(const T &Xi, const arma::vec &yi, const GridParams<T> &PG, const arma::vec &weights = arma::zeros<arma::vec>(2));
   ~Grid1D();
   std::vector<std::unique_ptr<FitResult<T>>> Fit();
 };
 
 template <class T>
-Grid1D<T>::Grid1D(const T &Xi, const arma::vec &yi, const GridParams<T> &PG) {
+Grid1D<T>::Grid1D(const T &Xi, const arma::vec &yi, const GridParams<T> &PG, const arma::vec &weights) {
   // automatically selects lambda_0 (but assumes other lambdas are given in
   // PG.P.ModelParams)
 
+  this->weights = weights;
+  //std::cout << "weights is in grid1d as: " << this->weights << "\n";
   X = &Xi;
   y = &yi;
   p = Xi.n_cols;
@@ -232,7 +235,7 @@ std::vector<std::unique_ptr<FitResult<T>>> Grid1D<T>::Fit() {
       // Rcpp::Rcout << "P.ModelParams[0]: " << P.ModelParams[0] << "\n";
 
       if (!currentskip) {
-        auto Model = make_CD(*X, *y, P);
+        auto Model = make_CD(*X, *y, P, this->weights);
 
         std::unique_ptr<FitResult<T>> result(new FitResult<T>);
         *result = Model->Fit();
