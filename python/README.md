@@ -23,10 +23,10 @@ Therefore, please see L0Learn's python documentation available [here](https://tn
 The external function usage is almost idential to L0Learn's API except replacing the module name `l0learn` with `fastsparsegams`.
 
 # Source Code and Installing from Source
-Alternatively, `fastSparseGAMs` can be build from source
+Alternatively, `fastSparseGAMs` can be built from source
 ```bash
-git clone https://github.com/tynanseltzer/L0Learn.git
-cd python
+git clone https://github.com/ubc-systopia/fastsparsemissing.git --recurse-submodules
+cd fastsparsemissing/python/
 ```
 
 To install, ensure the proper packages are installed from `pyproject.toml` build from source with the following:
