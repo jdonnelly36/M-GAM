@@ -12,7 +12,7 @@
 from tqdm import tqdm
 import sys
 import numpy as np, scipy.stats as st
-sys.path.append('/home/users/jcd97/code/missing_data/fastsparsemissing/missingness-experiments')
+sys.path.append('./')
 from experiment_utils import *
 from MAR_model import MAR_model
 import time
