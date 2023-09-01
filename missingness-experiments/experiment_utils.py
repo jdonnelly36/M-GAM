@@ -36,10 +36,7 @@ def generate_data(num_samples=10, num_features=5,
     # first 10 features are used, none others. Normal noise, features all random integers
     # (documentation of this setup can be found at https://tnonet.github.io/L0Learn/tutorial.html
     #  and this setup is also used in the tutorial example for fastsparsegams)
-    X = np.random.randint(2, size=(num_samples, num_features)).astype(float)
-    # X is a matrix of 0 and 1's; we want 0 to indicate false, so adjust
-    # them to -1
-    X = 2 * X - 1
+    X = np.random.normal(size=(num_samples, num_features))
 
     if dgp_function is None:
         B = np.random.normal(size=(num_features,))
@@ -55,6 +52,48 @@ def generate_data(num_samples=10, num_features=5,
     y[y == 0] = 1
 
     return X, y.astype(int)
+
+def bin_data(X, bin_type='overlapping_upper'):
+    '''
+    This function produces synthetic binary data and the corresponding
+    labels with the specified size and optionally following a specified
+    DGP.
+
+    Parameters
+    ----------
+    X : array (num_samples, num_features)
+        The original, unbinarized features to bin
+    bin_type : str, optional
+        The binning strategy to use; should be in {'overlapping_upper'}
+
+
+    Returns
+    -------
+    X_binned : array (num_samples, num_binned_features)
+        A binary matrix of features for the generated data
+    column_labels : list (num_binned_features)
+        The name of each column in the returned data
+    '''
+    supported_strategies = ['overlapping_upper']
+    assert bin_type in supported_strategies, f"Error: Binning strategy {bin_type} is not supported"
+
+    X_binned_list_of_lists = []
+    col_names = []
+    for column in range(X.shape[-1]):
+        unique_vals = np.unique(X[:, column])
+
+        # Create a bin for being less than halfway
+        # between each pair of sorted values
+        for ind in range(len(unique_vals) - 1):
+            middle_val = (unique_vals[ind] +  unique_vals[ind+1])/2
+            new_col = np.zeros(X.shape[0])
+            new_col[X[:, column] <= middle_val] = 1
+
+            X_binned_list_of_lists.append(new_col)
+            col_names.append(f"col_{column}<={middle_val}")
+
+    X_binned = np.array(X_binned_list_of_lists)
+    return X_binned, col_names
 
 def obfuscate_data(X, obfuscation_rate=0.2, missingness_model='MCAR'):
     '''
