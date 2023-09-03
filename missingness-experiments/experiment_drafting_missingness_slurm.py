@@ -36,6 +36,7 @@ def acc_by_missingness(missing_props, mode='MAR', n_samples=1000, n_features=10,
     train_indices = dataset_labels == 0
     val_indices = dataset_labels == 1
     test_indices = dataset_labels == 2
+    legend = []
 
     for missing_prop in tqdm(missing_props):
         X, y = X_orig.copy(), y_orig.copy()
@@ -49,64 +50,70 @@ def acc_by_missingness(missing_props, mode='MAR', n_samples=1000, n_features=10,
             X_missing = obfuscate_data(X.copy(), obfuscation_rate=missing_prop, missingness_model=missingness_model.get_mask)
         else:
             X_missing = obfuscate_data(X.copy(), obfuscation_rate=missing_prop, missingness_model=None)
-        X_augmented = add_missingness_terms(X_missing.copy())
-
-        X[X == -1] = 0
-        X_missing[X_missing == -1] = 0
-        X_augmented[X_augmented == -1] = 0
+        df = pd.DataFrame(X_missing)
+        df['y'] = y
+        binned_df = process_data_with_missingness(df)
+        X_augmented = binned_df.loc[:, binned_df.columns != 'y'].values
+        print("X_augmented.shape", X_augmented.shape)
 
         y_train = y[train_indices]
         y_val = y[val_indices]
         y_test = y[test_indices]
 
-        # Get best accuracy for the original data -----
+        ''' # Get best accuracy for the original data -----
         X_train = X[train_indices, :]
         X_val = X[val_indices, :]
         X_test = X[test_indices, :]
 
+        print(np.unique(X_train))
         fit_model, best_ind, test_accs = choose_best_gam(X_train, X_val, X_test, 
                                                         y_train, y_val, y_test,
                                                         num_bootstraps=num_bootstraps)
-        original_accs.append(test_accs)
+        original_accs.append(test_accs)'''
 
         # Get best accuracy for the obfuscated data -----
-        X_train = X_missing[train_indices, :]
+        '''X_train = X_missing[train_indices, :]
         X_val = X_missing[val_indices, :]
         X_test = X_missing[test_indices, :]
 
         fit_model, best_ind, test_accs = choose_best_gam(X_train, X_val, X_test, 
                                                         y_train, y_val, y_test, 
                                                         num_bootstraps=num_bootstraps)
-        missing_accs.append(test_accs)
+        missing_accs.append(test_accs)'''
 
         # Get best accuracy for the augmented data -----
         X_train = X_augmented[train_indices, :]
         X_val = X_augmented[val_indices, :]
         X_test = X_augmented[test_indices, :]
 
-        fit_model, best_ind, test_accs = choose_best_gam(X_train, X_val, X_test, 
+        '''fit_model, best_ind, test_accs = choose_best_gam(X_train, X_val, X_test, 
+                                                        y_train, y_val, y_test, 
+                                                        num_bootstraps=num_bootstraps)'''
+                                                        
+        fit_model, test_accs, support_sizes = get_reg_accu_paths(X_train, X_val, X_test, 
                                                         y_train, y_val, y_test, 
                                                         num_bootstraps=num_bootstraps)
-        coef_matrix = fit_model.coeff().todense()
-        print(f"For {n_samples} samples with {n_features} features and {missing_prop} missingness -----")
+        #coef_matrix = fit_model.coeff().todense()
+        '''print(f"For {n_samples} samples with {n_features} features and {missing_prop} missingness -----")
         num_w_missing = np.sum(np.sum((coef_matrix[:, n_features:] != 0), axis=1) > 0)
-        print(f"{num_w_missing} out of {coef_matrix.shape[0]} models had non-zero coefficients on missingness terms")
+        print(f"{num_w_missing} out of {coef_matrix.shape[0]} models had non-zero coefficients on missingness terms")'''
         #plt.savefig(f'model_viz_{n_samples}_samples_{n_features}_features_{missing_prop}_missing.png')
         #plt.clf()
-        augmented_accs.append(test_accs)
+        #augmented_accs.append(test_accs)
 
-    plt.errorbar(missing_props, [np.mean(o) for o in original_accs], [ci(o) for o in original_accs], capsize=4)
-    plt.errorbar(missing_props, [np.mean(o) for o in missing_accs], [ci(o) for o in missing_accs], capsize=4)
-    plt.errorbar(missing_props, [np.mean(o) for o in augmented_accs], [ci(o) for o in augmented_accs], capsize=4)
-    plt.legend(["No Missing Data", "Obfuscated", "Augmented"])
+        #plt.errorbar(missing_props, [np.mean(o) for o in original_accs], [ci(o) for o in original_accs], capsize=4)
+        #plt.errorbar(missing_props, [np.mean(o) for o in missing_accs], [ci(o) for o in missing_accs], capsize=4)
+        plt.errorbar(support_sizes, [np.mean(o) for o in test_accs], [ci(o) for o in test_accs], capsize=4)
+        legend.append(f"{missing_prop} Missing ({X_augmented.shape[-1]} Binary Features)")
+    plt.legend(legend)
     plt.ylabel("Test Accuracy")
-    plt.xlabel("Missing Probability")
+    plt.xlabel("Support Size")
     if missingness_model is None:
-        plt.title("Accuracy by Proportion Missing Under MCAR")
-        plt.savefig(f'MCAR_acc_by_missingness_{n_samples}_samples_{n_features}_features.png')
+        plt.title("Accuracy by Support Size Under MCAR")
+        plt.savefig(f'MCAR_acc_by_support_{n_samples}_samples_{n_features}_features.png')
     else:
-        plt.title("Accuracy by Proportion Missing Under MAR")
-        plt.savefig(f'MAR_acc_by_missingness_{n_samples}_samples_{n_features}_features.png')
+        plt.title("Accuracy by Support Size Under MAR")
+        plt.savefig(f'MAR_acc_by_support_{n_samples}_samples_{n_features}_features.png')
 
 def time_by_samples(n_samples, missing_prop=0.3, n_features=10, num_bootstraps=20):
     original_times = [[] for i in range(len(n_samples))]
@@ -177,19 +184,19 @@ def time_by_samples(n_samples, missing_prop=0.3, n_features=10, num_bootstraps=2
         plt.savefig(f'MAR_runtime_by_samples_{n_features}_features_{missing_prop}_missing.png')
 
 if __name__ == '__main__':
-    '''for model in ['MAR', 'MCAR']:
-        for n_features in [5, 10, 30, 50]:
-            missing_props = [i / 20 for i in range(20)]
-            n_samples = 10_000
-            num_bootstraps = 100
+    for model in ['MAR', 'MCAR']:
+        for n_features in [5, 10, 30]:
+            for n_samples in [100, 1_000, 10_000]:
+                missing_props = [i / 5 for i in range(6)]
+                num_bootstraps = 100
 
-            acc_by_missingness(missing_props, model, n_samples, n_features, num_bootstraps)
-            plt.clf()'''
+                acc_by_missingness(missing_props, model, n_samples, n_features, num_bootstraps)
+                plt.clf()
 
-    for missing_props in [0.1, 0.2, 0.5]:
+    '''for missing_props in [0.1, 0.2, 0.5]:
         for n_features in [5, 10, 30]:
             n_samples = [100, 1_000, 10_000]
             num_bootstraps = 20
 
             time_by_samples(n_samples, missing_prop=missing_props, n_features=n_features, num_bootstraps=20)
-            plt.clf()
+            plt.clf()'''
