@@ -7,7 +7,7 @@ class MAR_model():
     '''
     A convenience class for defining MAR models
     '''
-    def __init__(self, weights, missingness_prob=0.2):
+    def __init__(self, weights, missingness_prob=0.2, eligible_cols=[0]):
         '''
         Parameters
         ----------
@@ -21,6 +21,7 @@ class MAR_model():
         '''
         self.weights = weights
         self.missingness_prob = missingness_prob
+        self.eligible_cols = eligible_cols
 
     def get_mask(self, X):
         '''
@@ -44,6 +45,8 @@ class MAR_model():
 
         # For each feature in X, get the probability of removal
         for ftr_ind, w in enumerate(self.weights):
+            if ftr_ind not in self.eligible_cols:
+                continue
             unajusted_predictions = sigmoid(X @ w)
 
             # Take the given predictions and create a mask such that missingness_prob
