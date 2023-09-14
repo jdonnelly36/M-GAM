@@ -6,7 +6,10 @@ from matplotlib import pyplot as plt
 from sklearn.utils import resample
 
 def generate_data(num_samples=10, num_features=5, 
-                    dgp_function=None, noise_scale=1):
+                    dgp_function=None, noise_scale=1,
+                    X_cov_matrix=None, X_means=None,
+                    deterministic_relation=True,
+                    x1_noise_center=0):
     '''
     This function produces synthetic binary data and the corresponding
     labels with the specified size and optionally following a specified
@@ -37,8 +40,18 @@ def generate_data(num_samples=10, num_features=5,
     # first 10 features are used, none others. Normal noise, features all random integers
     # (documentation of this setup can be found at https://tnonet.github.io/L0Learn/tutorial.html
     #  and this setup is also used in the tutorial example for fastsparsegams)
-    X = np.random.normal(size=(num_samples, num_features))
+    if deterministic_relation:
+        X_rest = np.random.normal(size=(num_samples, num_features-1))
+        X_1 = np.sum(X_rest, axis=1).reshape(num_samples, 1) + np.random.normal(loc=x1_noise_center, size=(num_samples, 1))
+        X = np.concatenate((X_1, X_rest), axis=1)
+    elif X_cov_matrix is None:
+        X = np.random.normal(size=(num_samples, num_features))
+    else:
+        X = np.random.multivariate_normal(np.zeros(num_features) if X_means is None else X_means,
+                        cov=X_cov_matrix,
+                        size=num_samples)
 
+    print("X.shape", X.shape)
     if dgp_function is None:
         B = np.ones((num_features,))
         B[num_features//2:] = 0
@@ -46,13 +59,15 @@ def generate_data(num_samples=10, num_features=5,
         #B[(k // 2) : k] = -1
         # Add gaussian noise 
         e = np.random.normal(size=(num_samples,), scale=noise_scale)
-        y = np.sign(X @ B + 1e-10 + e)
+        y = X @ B + e
     else:
         # Add gaussian noise 
         e = np.random.normal(size=(num_samples,), scale=noise_scale)
-        y = np.sign(dgp_function(X) + 1e-10 + e)
-    y[y == 0] = 1
-    y = (y + 1) / 2
+        y = dgp_function(X) + e
+    y_mask = y > np.median(y)
+    y[y_mask] = 1
+    y[~y_mask] = 0
+    print("Class balance: ", np.mean(y))
 
     return X, y.astype(int)
 
@@ -133,13 +148,41 @@ def obfuscate_data(X, obfuscation_rate=0.2, missingness_model='MCAR'):
     
     if missingness_model is None:
         mask = np.random.choice([0, 1], p=[obfuscation_rate, 1 - obfuscation_rate], 
-                                size=X.shape).astype(float)
+                                size=(X.shape[0], 1)).astype(float)
+        mask = np.concatenate((mask, np.zeros((X.shape[0], X.shape[1]-1))), axis=1)
     else:
         mask = missingness_model(X)
     
     mask[mask == 0] = np.nan
 
     return X * mask
+
+def impute_mean_values(df,
+    outcome_col='y', 
+    missingness_val=None):
+
+    X_df = df.loc[:, df.columns != outcome_col]
+    X = X_df.values
+
+    def _check_not_missing(vals):
+        if missingness_val is None:
+            return ~np.isnan(vals)
+        else:
+            return vals == missingness_val
+    
+    X_imputed = {}
+    for col in range(X.shape[-1]):
+        old_col = X[:, col]
+        mean_nonmissing = np.mean(old_col[_check_not_missing(old_col)])
+        old_col[~_check_not_missing(old_col)] = mean_nonmissing
+
+        X_imputed[col] = old_col
+
+    X_imputed = pd.DataFrame(X_imputed)
+    X_imputed[outcome_col] = df[outcome_col]
+
+    return X_imputed
+
 
 def process_data_with_missingness(df, 
         use_inclusion_bound=True,
@@ -208,6 +251,7 @@ def process_data_with_missingness(df,
     col_inds = np.array(col_ind_list)
 
     X_binned_with_missing_list = X_binned_list
+    num_nonmissing_ftrs = len(X_binned_list)
 
     # Now adding terms for missingness -------------------------
     for column in range(X.shape[-1]):
@@ -241,7 +285,7 @@ def process_data_with_missingness(df,
     X_binned_dict[outcome_col] = df[outcome_col]
 
     X_binned = pd.DataFrame(X_binned_dict)
-    return X_binned
+    return X_binned, num_nonmissing_ftrs
 
 
 def add_missingness_terms(X, use_inclusion_bound=False):
@@ -283,16 +327,17 @@ def add_missingness_terms(X, use_inclusion_bound=False):
     return X_augmented
     
 def my_linear_dgp(X):
-    weights = np.zeros(X.shape[1])
-    weights[:X.shape[1]//2] = 1
+    #weights = np.zeros(X.shape[1])
+    #weights[:] = 1
+    weights = np.array([1, 0, 0])
     X_copy = (X.copy() + 1) // 2
-    return X_copy @ weights - np.mean(X_copy @ weights)
+    return X_copy @ weights # - np.mean(X_copy @ weights)
 
 def choose_best_gam(X_train, X_val, X_test, y_train, y_val, y_test, num_bootstraps=0):
     
     # Fit fastsparse on the data with missing data
     fit_model = fastsparsegams.fit(
-        X_train, y_train, loss="Exponential", max_support_size=20, algorithm="CDPSI"
+        X_train, y_train, loss="Exponential", max_support_size=200, algorithm="CDPSI"
     )
 
     val_accs = []
@@ -301,14 +346,18 @@ def choose_best_gam(X_train, X_val, X_test, y_train, y_val, y_test, num_bootstra
         lambda0 = fit_model.lambda_0[0][l]
         yhat_val = np.where(fit_model.predict(X_val, lambda_0=lambda0).flatten() > 0.5, 1, 0)
         val_accs.append(np.mean(yhat_val == y_val))
+        #yhat_train = np.where(fit_model.predict(X_train, lambda_0=lambda0).flatten() > 0.5, 1, 0)
+        #val_accs.append(np.mean(yhat_train == y_train))
         
     best_ind = np.argmax(val_accs)
 
     lambda0 = fit_model.lambda_0[0][best_ind]
+    print("lambda0: ", lambda0)
     test_accs = []
     if num_bootstraps > 0:
         for b in range(num_bootstraps):
             bootstrap_X, bootstrap_y = resample(X_test, y_test, replace=True, random_state=b)
+            #bootstrap_X, bootstrap_y = resample(X_train, y_train, replace=True, random_state=b)
             yhat_test = np.where(fit_model.predict(bootstrap_X, lambda_0=lambda0).flatten() > 0.5, 1, 0)
             test_acc = np.mean(yhat_test == bootstrap_y)
             test_accs.append(test_acc)
@@ -323,10 +372,12 @@ def get_reg_accu_paths(X_train, X_val, X_test, y_train, y_val, y_test, num_boots
     
     # Fit fastsparse on the data with missing data
     fit_model = fastsparsegams.fit(
-        X_train, y_train, loss="Exponential", max_support_size=20, algorithm="CDPSI"
+        X_train, y_train, loss="Exponential", max_support_size=200, algorithm="CDPSI"
     )
+    #print(fit_model._characteristics_as_pandas_table())
 
     lambdas = fit_model.lambda_0[0]
+    print("Lambdas: ", lambdas)
     test_accs_overall = []
     support_sizes = []
     if num_bootstraps > 0:
@@ -345,4 +396,4 @@ def get_reg_accu_paths(X_train, X_val, X_test, y_train, y_val, y_test, num_boots
             yhat_test = np.where(fit_model.predict(X_test, lambda_0=lam).flatten() > 0.5, 1, 0)
             test_accs_overall.append(np.mean(yhat_test == y_test))
         
-    return fit_model, test_accs_overall, support_sizes
+    return fit_model, test_accs_overall, support_sizes, lambdas
