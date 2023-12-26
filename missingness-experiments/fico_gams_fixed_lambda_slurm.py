@@ -233,7 +233,7 @@ folds = KFold(n_splits=num_trials, shuffle=True, random_state=split_seed)
 # In[15]:
 
 
-lambda_grid = [[1000, 100, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]]#, 0.01, 0.001]]#[100, 10, 1, 0.5, 0.2, 0.05, 0.02]
+lambda_grid = [[100, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]]#, 0.01, 0.001]]#[100, 10, 1, 0.5, 0.2, 0.05, 0.02]
 
 
 # In[16]:
@@ -284,9 +284,9 @@ for trial_idx, (train_index, test_index) in enumerate(folds.split(df)):
 
 
     # run fastsparse on these 3 datasets
-    model_aug = fastsparsegams.fit(X_aug_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None)
-    model_indicator = fastsparsegams.fit(X_indicator_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None)
-    model_no_missing = fastsparsegams.fit(X_no_missing_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None)
+    model_aug = fastsparsegams.fit(X_aug_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=500)
+    model_indicator = fastsparsegams.fit(X_indicator_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=500)
+    model_no_missing = fastsparsegams.fit(X_no_missing_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=500)
     
     # evaluate models
     train_probs_aug, test_probs_aug, coeff_aug, missing_coeff_aug, inter_coeffs = eval_model(model_aug, X_aug_train, 
@@ -400,7 +400,7 @@ plt.savefig(f'figs/Dec/fico_comparisons_subset={subset}_quantiles={num_quantiles
 
 # In[ ]:
 
-
+plt.clf()
 plt.title('Sparsity vs Lambda')
 plt.errorbar(nllambda[no_timeouts_no_missing], num_terms_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(num_terms_no_missing[no_timeouts_no_missing]), capsize=3, label='No missingness handling')
 plt.errorbar(nllambda[no_timeouts_aug], num_terms_aug[no_timeouts_aug].mean(axis=1), yerr = errors(num_terms_aug[no_timeouts_aug]), capsize=3, label='Interaction')
