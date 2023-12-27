@@ -217,8 +217,8 @@ def eval_model(model, X_train, X_test, col_names, provided_lambdas):
 # In[13]:
 
 
-# recover mean objective from probs
-def objective(probs, y): 
+# recover mean exponential loss from probs
+def loss(probs, y): 
     return np.exp(np.log(probs/(1 - probs))*-1/2*y).mean(axis=1)
 
 
@@ -295,8 +295,8 @@ for trial_idx, (train_index, test_index) in enumerate(folds.split(df)):
     testacc_aug[:, trial_idx] = ((test_probs_aug > 0.5) == y_test).mean(axis = 1)
     num_terms_aug[:, trial_idx] = (coeff_aug != 0).sum(axis=1)
 
-    trainobj_aug[:, trial_idx] = objective(train_probs_aug, y_train)
-    testobj_aug[:, trial_idx] = objective(test_probs_aug, y_test)
+    trainobj_aug[:, trial_idx] = loss(train_probs_aug, y_train)
+    testobj_aug[:, trial_idx] = loss(test_probs_aug, y_test)
     
     train_probs_indicator, test_probs_indicator, coeff_indicator, missing_coeff_indicator, _ = eval_model(model_indicator, 
                                                                                                     X_indicator_train, 
@@ -307,16 +307,16 @@ for trial_idx, (train_index, test_index) in enumerate(folds.split(df)):
     testacc_indicator[:, trial_idx] = ((test_probs_indicator > 0.5) == y_test).mean(axis=1)
     num_terms_indicator[:, trial_idx] = (coeff_indicator != 0).sum(axis=1)
 
-    trainobj_indicator[:, trial_idx] = objective(train_probs_indicator, y_train)
-    testobj_indicator[:, trial_idx] = objective(test_probs_indicator, y_test)
+    trainobj_indicator[:, trial_idx] = loss(train_probs_indicator, y_train)
+    testobj_indicator[:, trial_idx] = loss(test_probs_indicator, y_test)
     
     train_probs_no_missing, test_probs_no_missing, coeff_no_missing, _, __ = eval_model(model_no_missing, X_no_missing_train, X_no_missing_test, train_no_missing.columns[:-1], lambda_grid[0])
     trainacc_no_missing[:, trial_idx] = ((train_probs_no_missing > 0.5) == y_train).mean(axis=1)
     testacc_no_missing[:, trial_idx] = ((test_probs_no_missing > 0.5) == y_test).mean(axis=1)
     num_terms_no_missing[:, trial_idx] = (coeff_no_missing != 0).sum(axis=1)
 
-    trainobj_no_missing[:, trial_idx] = objective(train_probs_no_missing, y_train)
-    testobj_no_missing[:, trial_idx] = objective(test_probs_no_missing, y_test)
+    trainobj_no_missing[:, trial_idx] = loss(train_probs_no_missing, y_train)
+    testobj_no_missing[:, trial_idx] = loss(test_probs_no_missing, y_test)
 
 
 #currently gives min/max errors with a center mean; other options like standard error should also work. 
@@ -351,9 +351,9 @@ ax = axs[0, 0]
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 ax.set_title('Train Accuracy vs Negative Log Sparsity Penalty')
-ax.errorbar(nllambda[no_timeouts_no_missing], trainacc_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(trainacc_no_missing[no_timeouts_no_missing]), capsize=3 , label='train accuracy, no missing')
-ax.errorbar(nllambda[no_timeouts_aug], trainacc_aug[no_timeouts_aug].mean(axis=1), yerr=errors(trainacc_aug[no_timeouts_aug]), capsize=3, label='train accuracy, interaction')
-ax.errorbar(nllambda[no_timeouts_indicator], trainacc_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(trainacc_indicator[no_timeouts_indicator]), capsize=3, label='train accuracy, only indicator')
+ax.errorbar(nllambda[no_timeouts_no_missing], trainacc_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(trainacc_no_missing[no_timeouts_no_missing]), capsize=3 , label='no missingness variables')
+ax.errorbar(nllambda[no_timeouts_aug], trainacc_aug[no_timeouts_aug].mean(axis=1), yerr=errors(trainacc_aug[no_timeouts_aug]), capsize=3, label='missingness interactions')
+ax.errorbar(nllambda[no_timeouts_indicator], trainacc_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(trainacc_indicator[no_timeouts_indicator]), capsize=3, label='only missingness indicator')
 ax.set_ylabel('Classification Accuracy')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
@@ -362,11 +362,11 @@ ax.legend()
 ax = axs[1, 0]
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-ax.set_title('Unregularized Train Objective vs Negative Log Lambda_0')#\n (Other than intercept)
-ax.errorbar(nllambda[no_timeouts_no_missing], trainobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(trainobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='train obj, no missing')
-ax.errorbar(nllambda[no_timeouts_aug], trainobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(trainobj_aug[no_timeouts_aug]), capsize=3 ,label='train obj, interaction')
-ax.errorbar(nllambda[no_timeouts_indicator], trainobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(trainobj_indicator[no_timeouts_indicator]), capsize=3 ,label='train obj, only indicator')
-ax.set_ylabel('Unregularized Objective')
+ax.set_title('Train Exponential Loss vs Negative Log Lambda_0')#\n (Other than intercept)
+ax.errorbar(nllambda[no_timeouts_no_missing], trainobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(trainobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='no missingness variables')
+ax.errorbar(nllambda[no_timeouts_aug], trainobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(trainobj_aug[no_timeouts_aug]), capsize=3 ,label='missingness interaction')
+ax.errorbar(nllambda[no_timeouts_indicator], trainobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(trainobj_indicator[no_timeouts_indicator]), capsize=3 ,label='only missingness indicator')
+ax.set_ylabel('Exponential Loss')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
 
@@ -374,9 +374,9 @@ ax = axs[0, 1]
 
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 ax.set_title('Test Accuracy vs Negative Log Sparsity Penalty')
-ax.errorbar(nllambda[no_timeouts_no_missing], testacc_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(testacc_no_missing[no_timeouts_no_missing]), capsize=3, label='test accuracy, no missing')
-ax.errorbar(nllambda[no_timeouts_aug], testacc_aug[no_timeouts_aug].mean(axis=1), yerr = errors(testacc_aug[no_timeouts_aug]), capsize=3, label='test accuracy, interaction')
-ax.errorbar(nllambda[no_timeouts_indicator], testacc_indicator[no_timeouts_indicator].mean(axis=1), yerr = errors(testacc_indicator[no_timeouts_indicator]), capsize=3, label='test accuracy, only indicator')
+ax.errorbar(nllambda[no_timeouts_no_missing], testacc_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(testacc_no_missing[no_timeouts_no_missing]), capsize=3, label='no missingness variables')
+ax.errorbar(nllambda[no_timeouts_aug], testacc_aug[no_timeouts_aug].mean(axis=1), yerr = errors(testacc_aug[no_timeouts_aug]), capsize=3, label='missingness interaction')
+ax.errorbar(nllambda[no_timeouts_indicator], testacc_indicator[no_timeouts_indicator].mean(axis=1), yerr = errors(testacc_indicator[no_timeouts_indicator]), capsize=3, label='only missingness indicator')
 ax.set_ylabel('Classification Accuracy')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
@@ -385,11 +385,11 @@ ax.legend()
 ax = axs[1, 1]
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-ax.set_title('Unregularized Test Objective vs Negative Log Lambda_0')#\n (Other than intercept)
-ax.errorbar(nllambda[no_timeouts_no_missing], testobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(testobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='train obj, no missing')
-ax.errorbar(nllambda[no_timeouts_aug], trainobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(testobj_aug[no_timeouts_aug]), capsize=3 ,label='train obj, interaction')
-ax.errorbar(nllambda[no_timeouts_indicator], trainobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(testobj_indicator[no_timeouts_indicator]), capsize=3 ,label='train obj, only indicator')
-ax.set_ylabel('Unregularized Objective')
+ax.set_title('Test Exponential Loss vs Negative Log Lambda_0')#\n (Other than intercept)
+ax.errorbar(nllambda[no_timeouts_no_missing], testobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(testobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='no missingness variables')
+ax.errorbar(nllambda[no_timeouts_aug], trainobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(testobj_aug[no_timeouts_aug]), capsize=3 ,label='missingness interaction')
+ax.errorbar(nllambda[no_timeouts_indicator], trainobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(testobj_indicator[no_timeouts_indicator]), capsize=3 ,label='only missingness indicator')
+ax.set_ylabel('Exponential Loss')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
 
