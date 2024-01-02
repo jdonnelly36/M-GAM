@@ -31,7 +31,7 @@ import time
 
 
 num_trials = 10
-split_seed = 10
+split_seed = 9
 
 
 # In[4]:
@@ -46,7 +46,7 @@ subset = False
 # In[5]:
 
 
-num_quantiles = 4
+num_quantiles = 8
 quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1] #don't take first quantile in the space, because it is 0 and will give a vacuous threshold
                                                        #The last is always true for the training set, so we do not use that either. 
 
@@ -233,7 +233,7 @@ folds = KFold(n_splits=num_trials, shuffle=True, random_state=split_seed)
 # In[15]:
 
 
-lambda_grid = [[100, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]]#, 0.01, 0.001]]#[100, 10, 1, 0.5, 0.2, 0.05, 0.02]
+lambda_grid = [[100, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]]#, 0.005, 0.001, 0.0005, 0.01, 0.001]]#[100, 10, 1, 0.5, 0.2, 0.05, 0.02]
 
 
 # In[16]:
@@ -291,7 +291,7 @@ for trial_idx, (train_index, test_index) in enumerate(folds.split(df)):
     # evaluate models
     train_probs_aug, test_probs_aug, coeff_aug, missing_coeff_aug, inter_coeffs = eval_model(model_aug, X_aug_train, 
                                                                             X_aug_test, train_binned_augmented.columns[:-1], lambda_grid[0])
-    trainacc_aug[:, trial_idx] = ((train_probs_aug > 0.5) == y_train).mean(axis = 1)
+    trainacc_aug[:, trial_idx] = ((train_probs_aug > 0.5) == y_train).mean(axis = 1)#change to roc_auc
     testacc_aug[:, trial_idx] = ((test_probs_aug > 0.5) == y_test).mean(axis = 1)
     num_terms_aug[:, trial_idx] = (coeff_aug != 0).sum(axis=1)
 
@@ -387,8 +387,8 @@ ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
 ax.set_title('Test Exponential Loss vs Negative Log Lambda_0')#\n (Other than intercept)
 ax.errorbar(nllambda[no_timeouts_no_missing], testobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(testobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='no missingness variables')
-ax.errorbar(nllambda[no_timeouts_aug], trainobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(testobj_aug[no_timeouts_aug]), capsize=3 ,label='missingness interaction')
-ax.errorbar(nllambda[no_timeouts_indicator], trainobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(testobj_indicator[no_timeouts_indicator]), capsize=3 ,label='only missingness indicator')
+ax.errorbar(nllambda[no_timeouts_aug], testobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(testobj_aug[no_timeouts_aug]), capsize=3 ,label='missingness interaction')
+ax.errorbar(nllambda[no_timeouts_indicator], testobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(testobj_indicator[no_timeouts_indicator]), capsize=3 ,label='only missingness indicator')
 ax.set_ylabel('Exponential Loss')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
@@ -411,7 +411,7 @@ plt.legend()
 
 plt.savefig(f'figs/Dec/sparsity_lambda_subset={subset}_quantiles={num_quantiles}_seed={split_seed}_noexternal={no_external}.png')
 
-
+print('successful execution!')
 # In[ ]:
 
 
