@@ -145,56 +145,18 @@ for holdout_set in holdouts:
             model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0]
             )
 
-#TODO: collect array of probs/aucs for indicator method and then use errors from utils to plot error bars from our approach. 
-# also fix the MICE reference to be a flat bar calculated correctly, rather than varying with lambda. 
-# And print coeffs after you're done with that. 
+#save data files to csv: 
 
-nllambda = -np.log(lambda_grid[0])
+np.savetxt('experiment_data/train_auc_aug.csv', train_auc_aug)
+np.savetxt('experiment_data/train_auc_indicator.csv', train_auc_indicator)
+np.savetxt('experiment_data/train_auc_no_missing.csv', train_auc_no_missing)
+np.savetxt('experiment_data/test_auc_aug.csv', test_auc_aug)
+np.savetxt('experiment_data/test_auc_indicator.csv', test_auc_indicator)
+np.savetxt('experiment_data/test_auc_no_missing.csv', test_auc_no_missing)
+np.savetxt('experiment_data/imputation_ensemble_train_auc.csv', imputation_ensemble_train_auc)
+np.savetxt('experiment_data/imputation_ensemble_test_auc.csv', imputation_ensemble_test_auc)
+np.savetxt('experiment_data/nllambda.csv', -np.log(lambda_grid[0]))
+#can also try pickle file of all hyperparameters, and save to a folder with corresponding hash
 
-no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
-
-
-plt.title('Train AUC vs Negative Log Lambda_0')
-plt.errorbar(nllambda,
-             imputation_ensemble_train_auc.mean()*np.ones(len(nllambda)),
-             yerr = imputation_ensemble_train_auc.std()/len(imputation_ensemble_train_auc), capsize=3,
-             label='ensemble of 10 MICE imputations')
-plt.errorbar(nllambda, train_auc_no_missing.mean(axis=0), 
-             yerr = errors(train_auc_no_missing, axis=0), capsize=3,
-             label='No missingness handling (single run)')
-plt.errorbar(nllambda, train_auc_indicator.mean(axis=0), 
-             yerr = errors(train_auc_indicator, axis=0), capsize=3,
-             label='Missingness indicators (single run)')
-plt.errorbar(nllambda[no_timeouts_aug], train_auc_aug[:, no_timeouts_aug].mean(axis=0), 
-             yerr = errors(train_auc_aug[:, no_timeouts_aug], axis=0), capsize=3,
-             label='Missingness with interactions (single run)')
-plt.xlabel('Negative Log Lambda_0')
-plt.ylabel('Train AUC')
-plt.legend()
-# plt.ylim(0.7, 0.85)
-plt.savefig('./figs/mice_slurm_train_AUC.png')
-
-plt.clf()
-
-plt.title('Test AUC vs Negative Log Lambda_0')
-plt.errorbar(nllambda, 
-             imputation_ensemble_test_auc.mean()*np.ones(len(nllambda)), 
-             yerr = imputation_ensemble_test_auc.std()/len(imputation_ensemble_test_auc), capsize=3,
-             label='ensemble of 10 MICE imputations')
-plt.errorbar(nllambda, test_auc_no_missing.mean(axis=0), 
-             yerr = errors(test_auc_no_missing, axis=0), capsize=3,
-             label='No missingness handling (single run)')
-plt.errorbar(nllambda, test_auc_indicator.mean(axis=0), 
-             yerr = errors(test_auc_indicator, axis=0), capsize=3,
-             label='Missingness indicators (single run)')
-plt.errorbar(nllambda[no_timeouts_aug], 
-             test_auc_aug[:, no_timeouts_aug].mean(axis=0), 
-             yerr = errors(test_auc_aug[:, no_timeouts_aug], axis=0), capsize=3,
-             label='Missingness with interactions (single run)')
-plt.xlabel('Negative Log Lambda_0')
-plt.ylabel('Test AUC')
-plt.legend()
-# plt.ylim(0.7, 0.8)
-plt.savefig('./figs/mice_slurm_test_AUC.png')
 
 print('successfully finished execution')

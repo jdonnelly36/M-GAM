@@ -162,13 +162,9 @@ def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
 
-def errors(accs, error_bar_type='standard error'):
-    if error_bar_type == 'range': 
-        lower_error = (accs.mean(axis=1)[:, np.newaxis] - accs).max(axis=1)[np.newaxis, :]
-        upper_error = (accs - accs.mean(axis=1)[:, np.newaxis]).max(axis=1)[np.newaxis, :]
-        return np.concatenate([lower_error, upper_error], axis=0)
-    elif error_bar_type == 'standard error': 
-        standard_error = accs.std(axis=1)/np.sqrt(accs.shape[1]) #currently has no small sample size correction
+def errors(accs, axis=0, error_bar_type='standard error'):
+    if error_bar_type == 'standard error': 
+        standard_error = accs.std(axis=axis)/np.sqrt(accs.shape[axis]) #currently has no small sample size correction
         return standard_error #multiply by 2 for 95% CI if sample size large enough
     else: 
         print(f'Unsupported error bar type: {error_bar_type}. Must be range or confidence interval')

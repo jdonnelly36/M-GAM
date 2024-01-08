@@ -19,170 +19,95 @@ from sklearn.model_selection import train_test_split, KFold
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import time
+from sklearn import metrics
 
+# ### Dataset Loading
+df = pd.read_csv('./Breast_cancer_complete_used_onehot.csv')
+label = list(df)[-1]
 
-# In[2]:
-
-
-### input parameters for plots, info about MICE
-
-
-# In[3]:
-
-
+### parameters for experiments
 num_trials = 10
-split_seed = 1
-
-
-# In[4]:
-
-
-subset = False
-# subset_seed=1
-# subset = f'Random_seed={subset_seed}'
-# subset_size=5
-
-
-# In[5]:
-
+split_seed = 2
+lambda_grid = [[100, 10, 1, 0.1, 0.05, 0.01, 0.005, 0.001]]
 
 num_quantiles = 8
 quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1] #don't take first quantile in the space, because it is 0 and will give a vacuous threshold
                                                        #The last is always true for the training set, so we do not use that either. 
 
 
-# In[6]:
-
-
-no_external=True
-
-
-# ### Dataset Loading
-
-# In[7]:
-
-
-df = pd.read_csv('./fico_full.csv')
-
-
-# In[8]:
-
-
+subset = False
+# subset_seed=1
+# subset = f'Random_seed={subset_seed}'
+# subset_size=5
 if subset: 
-    if 'Random' in subset: 
-        np.random.seed(subset_seed)
-        cols = df.columns[list(np.random.choice(df.shape[1]-1, 5, replace=False)) + [-1]]
-        df = df[cols]
-    else: 
-        df = df[df.columns[[-9, -5, -4, -3, -2, -1]]] #highest missingness prop
+    np.random.seed(subset_seed)
+    cols = df.columns[list(np.random.choice(df.shape[1]-1, 5, replace=False)) + [-1]]
+    df = df[cols]
 
-
-# In[9]:
-
-
-if no_external and 'ExternalRiskEstimate' in list(df): 
-    df.drop('ExternalRiskEstimate', axis=1, inplace=True)
-
-
-# In[10]:
-
-
-# for c in df.columns:
-#     print(f"Missing rate for {c}", df[df[c] <= -7].shape[0] / df[c].shape[0])
-
+experiment_name = f'breca_subset={subset}_quantiles={num_quantiles}_seed={split_seed}_trials={num_trials}'
 
 # ### Utility functions for running experiments
 
-# In[11]:
 
-
-def binarize_according_to_train(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], overall_mi_intercept = True, overall_mi_ixn = True, specific_mi_intercept = True, specific_mi_ixn = True):
+def binarize_according_to_train(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8]):
     n_train, d_train = train_df.shape
     n_test, d_test = test_df.shape
     train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
     train_no_missing, test_no_missing = {}, {}
     for c in train_df.columns:
-        if c == 'PoorRiskPerformance':
+        if c == label:
             continue
         missing_col_name = f'{c} missing'
         missing_row_train = np.zeros(n_train)
         missing_row_test = np.zeros(n_test)
-        for v in list(train_df[c].quantile(quantiles_for_binarizing).unique()) + [-7, -8, -9]:
-            if v in [-7, -8, -9]:
+        for v in list(train_df[c].quantile(quantiles_for_binarizing).unique()):
+            new_col_name = f'{c} <= {v}'
 
-                if specific_mi_intercept:
-                    new_col_name = f'{c} == {v}'
+            new_row_train = np.zeros(n_train)
+            new_row_train[train_df[c] <= v] = 1
+            train_no_missing[new_col_name] = new_row_train
+            train_binned[new_col_name] = new_row_train
+            train_augmented_binned[new_col_name] = new_row_train
+            
+            new_row_test = np.zeros(n_test)
+            new_row_test[test_df[c] <= v] = 1
+            test_no_missing[new_col_name] = new_row_test
+            test_binned[new_col_name] = new_row_test
+            test_augmented_binned[new_col_name] = new_row_test
+
+        missing_row_train[train_df[c].isna()] = 1
+        missing_row_test[test_df[c].isna()] = 1
+
+        train_binned[missing_col_name] = missing_row_train
+        train_augmented_binned[missing_col_name] = missing_row_train
     
-                    new_row_train = np.zeros(n_train)
-                    new_row_train[train_df[c] == v] = 1
-                    train_binned[new_col_name] = new_row_train
-                    train_augmented_binned[new_col_name] = new_row_train
-                    
-                    new_row_test = np.zeros(n_test)
-                    new_row_test[test_df[c] == v] = 1
-                    test_binned[new_col_name] = new_row_test
-                    test_augmented_binned[new_col_name] = new_row_test
-
-                missing_row_train[train_df[c] == v] = 1
-                missing_row_test[test_df[c] == v] = 1
-            else:
-                new_col_name = f'{c} <= {v}'
-
-                new_row_train = np.zeros(n_train)
-                new_row_train[train_df[c] <= v] = 1
-                train_no_missing[new_col_name] = new_row_train
-                train_binned[new_col_name] = new_row_train
-                train_augmented_binned[new_col_name] = new_row_train
-                
-                new_row_test = np.zeros(n_test)
-                new_row_test[test_df[c] <= v] = 1
-                test_no_missing[new_col_name] = new_row_test
-                test_binned[new_col_name] = new_row_test
-                test_augmented_binned[new_col_name] = new_row_test
-
-        if overall_mi_intercept: 
-            train_binned[missing_col_name] = missing_row_train
-            train_augmented_binned[missing_col_name] = missing_row_train
-        
-            test_binned[missing_col_name] = missing_row_test
-            test_augmented_binned[missing_col_name] = missing_row_test
+        test_binned[missing_col_name] = missing_row_test
+        test_augmented_binned[missing_col_name] = missing_row_test
     
     for c_outer in train_df.columns:
-        if c_outer == 'PoorRiskPerformance':
+        if c_outer == label:
             continue
         for c_inner in train_df.columns:
             for v in train_df[c_inner].quantile(quantiles_for_binarizing).unique():
-                if (v in [-7, -8, -9]) or c_inner == 'PoorRiskPerformance':
+                if c_inner == label:
                     continue
                 else:
                     missing_ixn_name = f'{c_outer} missing & {c_inner} <= {v}'
                     missing_ixn_row_train = np.zeros(n_train)
                     missing_ixn_row_test = np.zeros(n_test)
-                    for m_val in [-7, -8, -9]:
-                        if specific_mi_ixn: 
-                            new_col_name = f'{c_outer}_missing_{m_val} & {c_inner} <= {v}'
-    
-                            new_row_train = np.zeros(n_train)
-                            new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] <= v)] = 1
-                            train_augmented_binned[new_col_name] = new_row_train
-    
-                            new_row_test = np.zeros(n_test)
-                            new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] <= v)] = 1
-                            test_augmented_binned[new_col_name] = new_row_test
 
-                        missing_ixn_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] <= v)] = 1
-                        missing_ixn_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] <= v)] = 1
+                    missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner] <= v)] = 1
+                    missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner] <= v)] = 1
 
-                    if overall_mi_ixn: 
-                        train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
-                        test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                    train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                    test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
                         
-    train_binned['PoorRiskPerformance'] = train_df['PoorRiskPerformance']
-    test_binned['PoorRiskPerformance'] = test_df['PoorRiskPerformance']
-    train_no_missing['PoorRiskPerformance'] = train_df['PoorRiskPerformance']
-    test_no_missing['PoorRiskPerformance'] = test_df['PoorRiskPerformance']
-    train_augmented_binned['PoorRiskPerformance'] = train_df['PoorRiskPerformance']
-    test_augmented_binned['PoorRiskPerformance'] = test_df['PoorRiskPerformance']
+    train_binned[label] = train_df[label]
+    test_binned[label] = test_df[label]
+    train_no_missing[label] = train_df[label]
+    test_no_missing[label] = test_df[label]
+    train_augmented_binned[label] = train_df[label]
+    test_augmented_binned[label] = test_df[label]
     return pd.DataFrame(train_no_missing), pd.DataFrame(train_binned), pd.DataFrame(train_augmented_binned), \
          pd.DataFrame(test_no_missing), pd.DataFrame(test_binned), pd.DataFrame(test_augmented_binned)
 
@@ -218,6 +143,7 @@ def eval_model(model, X_train, X_test, col_names, provided_lambdas):
 
 
 # recover mean exponential loss from probs
+# epsilon added to avoid numerical issues with dividing by a value numerically too close to 0
 def loss(probs, y): 
     return np.exp(np.log(probs/(1 - probs))*-1/2*y).mean(axis=1)
 
@@ -228,12 +154,6 @@ def loss(probs, y):
 
 
 folds = KFold(n_splits=num_trials, shuffle=True, random_state=split_seed)
-
-
-# In[15]:
-
-
-lambda_grid = [[100, 10, 5, 2, 1, 0.5, 0.2, 0.1, 0.05, 0.02, 0.01]]#, 0.005, 0.001, 0.0005, 0.01, 0.001]]#[100, 10, 1, 0.5, 0.2, 0.05, 0.02]
 
 
 # In[16]:
@@ -274,9 +194,9 @@ for trial_idx, (train_index, test_index) in enumerate(folds.split(df)):
 
     train_no_missing, train_binned, train_binned_augmented, test_no_missing, test_binned, test_binned_augmented = binarize_according_to_train(train_df, test_df, quantiles_for_binarizing = quantiles)
     X_indicator_train = train_binned[train_binned.columns[:-1]].values
-    y_train = train_binned['PoorRiskPerformance'].values
+    y_train = train_binned[label].values
     X_indicator_test = test_binned[test_binned.columns[:-1]].values
-    y_test = test_binned['PoorRiskPerformance'].values
+    y_test = test_binned[label].values
     X_no_missing_train = train_no_missing[train_no_missing.columns[:-1]].values
     X_no_missing_test = test_no_missing[test_no_missing.columns[:-1]].values
     X_aug_train = train_binned_augmented[train_binned_augmented.columns[:-1]].values
@@ -284,14 +204,14 @@ for trial_idx, (train_index, test_index) in enumerate(folds.split(df)):
 
 
     # run fastsparse on these 3 datasets
-    model_aug = fastsparsegams.fit(X_aug_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=100)
-    model_indicator = fastsparsegams.fit(X_indicator_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=100)
-    model_no_missing = fastsparsegams.fit(X_no_missing_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=100)
+    model_aug = fastsparsegams.fit(X_aug_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=50)
+    model_indicator = fastsparsegams.fit(X_indicator_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=50)
+    model_no_missing = fastsparsegams.fit(X_no_missing_train.astype(float), y_train.astype(int)*2 - 1, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=50)
     
     # evaluate models
     train_probs_aug, test_probs_aug, coeff_aug, missing_coeff_aug, inter_coeffs = eval_model(model_aug, X_aug_train, 
                                                                             X_aug_test, train_binned_augmented.columns[:-1], lambda_grid[0])
-    trainacc_aug[:, trial_idx] = ((train_probs_aug > 0.5) == y_train).mean(axis = 1)#change to roc_auc
+    trainacc_aug[:, trial_idx] = ((train_probs_aug > 0.5) == y_train).mean(axis = 1)
     testacc_aug[:, trial_idx] = ((test_probs_aug > 0.5) == y_test).mean(axis = 1)
     num_terms_aug[:, trial_idx] = (coeff_aug != 0).sum(axis=1)
 
@@ -350,60 +270,58 @@ fig, axs = plt.subplots(2, 2, figsize=(10, 10))
 ax = axs[0, 0]
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-ax.set_title('Train Accuracy vs Negative Log Sparsity Penalty \n for FICO')
+ax.set_title('Train Accuracy vs Negative Log Sparsity Penalty \n for BRECA')
 ax.errorbar(nllambda[no_timeouts_no_missing], trainacc_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(trainacc_no_missing[no_timeouts_no_missing]), capsize=3 , label='no missingness variables')
 ax.errorbar(nllambda[no_timeouts_aug], trainacc_aug[no_timeouts_aug].mean(axis=1), yerr=errors(trainacc_aug[no_timeouts_aug]), capsize=3, label='missingness interactions')
 ax.errorbar(nllambda[no_timeouts_indicator], trainacc_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(trainacc_indicator[no_timeouts_indicator]), capsize=3, label='only missingness indicator')
 ax.set_ylabel('Classification Accuracy')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
-ax.set_ylim([0.69, 0.75])
+# ax.set_ylim([0.69, 0.75])
 
 ax = axs[1, 0]
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-ax.set_title('Train Exponential Loss vs Negative Log Lambda_0 \n for FICO')#\n (Other than intercept)
+ax.set_title('Train Exponential Loss vs Negative Log Lambda_0 \n for BRECA')#\n (Other than intercept)
 ax.errorbar(nllambda[no_timeouts_no_missing], trainobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(trainobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='no missingness variables')
 ax.errorbar(nllambda[no_timeouts_aug], trainobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(trainobj_aug[no_timeouts_aug]), capsize=3 ,label='missingness interaction')
 ax.errorbar(nllambda[no_timeouts_indicator], trainobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(trainobj_indicator[no_timeouts_indicator]), capsize=3 ,label='only missingness indicator')
 ax.set_ylabel('Exponential Loss')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
-ax.set_ylim([0.85, 0.95])
 
 ax = axs[0, 1]
 
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-ax.set_title('Test Accuracy vs Negative Log Sparsity Penalty \n for FICO')
+ax.set_title('Test Accuracy vs Negative Log Sparsity Penalty \n for BRECA')
 ax.errorbar(nllambda[no_timeouts_no_missing], testacc_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(testacc_no_missing[no_timeouts_no_missing]), capsize=3, label='no missingness variables')
 ax.errorbar(nllambda[no_timeouts_aug], testacc_aug[no_timeouts_aug].mean(axis=1), yerr = errors(testacc_aug[no_timeouts_aug]), capsize=3, label='missingness interaction')
 ax.errorbar(nllambda[no_timeouts_indicator], testacc_indicator[no_timeouts_indicator].mean(axis=1), yerr = errors(testacc_indicator[no_timeouts_indicator]), capsize=3, label='only missingness indicator')
 ax.set_ylabel('Classification Accuracy')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
-ax.set_ylim([0.69, 0.75])
+# ax.set_ylim([0.69, 0.75])
 
 ax = axs[1, 1]
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-ax.set_title('Test Exponential Loss vs Negative Log Lambda_0 \n for FICO')#\n (Other than intercept)
+ax.set_title('Test Exponential Loss vs Negative Log Lambda_0 \n for BRECA')#\n (Other than intercept)
 ax.errorbar(nllambda[no_timeouts_no_missing], testobj_no_missing[no_timeouts_no_missing].mean(axis=1), yerr=errors(testobj_no_missing[no_timeouts_no_missing]), capsize=3 ,label='no missingness variables')
 ax.errorbar(nllambda[no_timeouts_aug], testobj_aug[no_timeouts_aug].mean(axis=1), yerr=errors(testobj_aug[no_timeouts_aug]), capsize=3 ,label='missingness interaction')
 ax.errorbar(nllambda[no_timeouts_indicator], testobj_indicator[no_timeouts_indicator].mean(axis=1), yerr=errors(testobj_indicator[no_timeouts_indicator]), capsize=3 ,label='only missingness indicator')
 ax.set_ylabel('Exponential Loss')
 ax.set_xlabel('-Log(Lambda_0)')
 ax.legend()
-ax.set_ylim([0.85, 0.95])
 
 fig.tight_layout()
 
-plt.savefig(f'jan/fico_comparisons_subset={subset}_quantiles={num_quantiles}_seed={split_seed}_noexternal={no_external}.png')
+plt.savefig(f'jan/{experiment_name}.png')
 
 
 # In[ ]:
 
 plt.clf()
-plt.title('Sparsity vs Lambda \n for FICO')
+plt.title('Sparsity vs Lambda \n for BRECA')
 plt.errorbar(nllambda[no_timeouts_no_missing], num_terms_no_missing[no_timeouts_no_missing].mean(axis=1), yerr = errors(num_terms_no_missing[no_timeouts_no_missing]), capsize=3, label='No missingness handling')
 plt.errorbar(nllambda[no_timeouts_aug], num_terms_aug[no_timeouts_aug].mean(axis=1), yerr = errors(num_terms_aug[no_timeouts_aug]), capsize=3, label='Interaction')
 plt.errorbar(nllambda[no_timeouts_indicator], num_terms_indicator[no_timeouts_indicator].mean(axis=1), yerr = errors(num_terms_indicator[no_timeouts_indicator]), capsize=3, label='Only indicator')
@@ -411,19 +329,13 @@ plt.ylabel('Number of Terms in model')
 plt.xlabel('-Log(Lambda_0)')
 plt.legend()
 
-plt.savefig(f'jan/sparsity_lambda_subset={subset}_quantiles={num_quantiles}_seed={split_seed}_noexternal={no_external}.png')
-
-print('successful execution!')
-# In[ ]:
+plt.savefig(f'jan/sparsity_lambda_{experiment_name}.png')
 
 
-# with open(f'figs/Dec/fico_comparisons_subset={subset}_quantiles={num_quantiles}_seed={split_seed}_noexternal={no_external}.txt', 'w') as outfile: 
+
+# with open(f'dec/{experiment_name}.txt', 'w') as outfile: 
 #     for c in df.columns:
 #         outfile.write(f"Missing rate for {c}" + str(df[df[c] <= -7].shape[0] / df[c].shape[0]) + '\n')
-
-
-# In[ ]:
-
 
 
 
