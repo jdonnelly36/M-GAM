@@ -9,6 +9,10 @@
 #not SBATCH  -x linux[41-60],gpu-compute[1-7]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
+import os
+import sys
+sys.path.append(os.getcwd())
+
 import numpy as np
 import pandas as pd
 from sklearn import metrics
@@ -157,6 +161,8 @@ plt.ylabel('Train AUC')
 plt.legend()
 # plt.ylim(0.7, 0.85)
 plt.savefig('./figs/mice_slurm_train_AUC.png')
+
+plt.clf()
 
 plt.title('Test AUC vs Negative Log Lambda_0')
 plt.plot(nllambda, imputation_ensemble_test_auc.mean()*np.ones(len(nllambda)), label='ensemble of 10 MICE imputations')
