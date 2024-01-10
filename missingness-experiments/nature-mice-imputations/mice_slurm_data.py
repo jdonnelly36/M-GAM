@@ -22,7 +22,7 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-lambda_grid = [[10, 5, 2, 1, 0.5, 0.1, 0.05, 0.01]]
+lambda_grid = [[10, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
 holdouts = [0, 1, 2]
 validations = [0, 1, 2, 3, 4]
@@ -45,6 +45,11 @@ train_auc_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 test_auc_aug = np.zeros((len(holdouts), len(lambda_grid[0])))
 test_auc_indicator = np.zeros((len(holdouts), len(lambda_grid[0])))
 test_auc_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
+
+#sparsity for each lambda, holdout, and method
+sparsity_aug = np.zeros((len(holdouts), len(lambda_grid[0])))
+sparsity_indicator = np.zeros((len(holdouts), len(lambda_grid[0])))
+sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
     for val_set in validations: 
@@ -129,23 +134,26 @@ for holdout_set in holdouts:
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=200)
-        _, train_auc_no_missing[holdout_set], _, test_auc_no_missing[holdout_set], _ = eval_model(
+        (_, train_auc_no_missing[holdout_set], 
+         _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = eval_model(
             model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0]
             )
         
         model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=200)
-        _, train_auc_indicator[holdout_set], _, test_auc_indicator[holdout_set], _ = eval_model(
+        (_, train_auc_indicator[holdout_set], 
+         _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = eval_model(
             model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0]
             )
         
         model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
                                     lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=50)
-        _, train_auc_aug[holdout_set], _, test_auc_aug[holdout_set], _ = eval_model(
+        (_, train_auc_aug[holdout_set], 
+         _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = eval_model(
             model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0]
             )
 
-#save data files to csv: 
+#save data to csv: 
 
 np.savetxt('experiment_data/train_auc_aug.csv', train_auc_aug)
 np.savetxt('experiment_data/train_auc_indicator.csv', train_auc_indicator)
@@ -156,6 +164,12 @@ np.savetxt('experiment_data/test_auc_no_missing.csv', test_auc_no_missing)
 np.savetxt('experiment_data/imputation_ensemble_train_auc.csv', imputation_ensemble_train_auc)
 np.savetxt('experiment_data/imputation_ensemble_test_auc.csv', imputation_ensemble_test_auc)
 np.savetxt('experiment_data/nllambda.csv', -np.log(lambda_grid[0]))
+
+np.savetxt('experiment_data/sparsity_aug.csv', sparsity_aug)
+np.savetxt('experiment_data/sparsity_indicator.csv', sparsity_indicator)
+np.savetxt('experiment_data/sparsity_no_missing.csv',sparsity_no_missing)
+
+
 #can also try pickle file of all hyperparameters, and save to a folder with corresponding hash
 
 

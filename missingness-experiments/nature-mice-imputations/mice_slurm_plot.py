@@ -31,50 +31,63 @@ imputation_ensemble_train_auc = np.loadtxt('experiment_data/imputation_ensemble_
 imputation_ensemble_test_auc = np.loadtxt('experiment_data/imputation_ensemble_test_auc.csv')
 nllambda = np.loadtxt('experiment_data/nllambda.csv')
 
+sparsity_aug = np.loadtxt('experiment_data/sparsity_aug.csv')
+sparsity_indicator = np.loadtxt('experiment_data/sparsity_indicator.csv')
+sparsity_no_missing = np.loadtxt('experiment_data/sparsity_no_missing.csv')
+
 no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
+sparsity_aug = sparsity_aug[:, no_timeouts_aug]
+train_auc_aug = train_auc_aug[:, no_timeouts_aug]
+test_auc_aug = test_auc_aug[:, no_timeouts_aug]
 
-
-plt.title('Train AUC vs Negative Log Lambda_0 \n for BRECA dataset')
-plt.errorbar(nllambda,
-             imputation_ensemble_train_auc.mean()*np.ones(len(nllambda)),
-             yerr = imputation_ensemble_train_auc.std()/len(imputation_ensemble_train_auc), capsize=3,
-             label='ensemble of 10 MICE imputations')
-plt.errorbar(nllambda, train_auc_no_missing.mean(axis=0), 
-             yerr = errors(train_auc_no_missing, axis=0), capsize=3,
-             label='No missingness handling (single run)')
-plt.errorbar(nllambda, train_auc_indicator.mean(axis=0), 
-             yerr = errors(train_auc_indicator, axis=0), capsize=3,
-             label='Missingness indicators (single run)')
-plt.errorbar(nllambda[no_timeouts_aug], train_auc_aug[:, no_timeouts_aug].mean(axis=0), 
-             yerr = errors(train_auc_aug[:, no_timeouts_aug], axis=0), capsize=3,
-             label='Missingness with interactions (single run)')
-plt.xlabel('Negative Log Lambda_0')
+plt.title('Train AUC vs # Nonzero Coefficients \n for BRECA dataset')
+plt.hlines(imputation_ensemble_train_auc.mean(), 0,
+           max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
+           label='mean performance, ensemble of 10 MICE imputations') #TODO: add error bars? 
+plt.errorbar(sparsity_no_missing.mean(axis=0), train_auc_no_missing.mean(axis=0), 
+             yerr = errors(train_auc_no_missing, axis=0),
+             xerr = errors(sparsity_no_missing, axis=0),
+             label='No missingness handling', fmt='.', lw=1)
+plt.errorbar(sparsity_aug.mean(axis=0), train_auc_aug.mean(axis=0), 
+             yerr = errors(train_auc_aug, axis=0), 
+             xerr = errors(sparsity_aug, axis=0),
+             fmt = '.', lw=1,
+             label='Missingness with interactions')
+plt.errorbar(sparsity_indicator.mean(axis=0), train_auc_indicator.mean(axis=0), 
+             yerr = errors(train_auc_indicator, axis=0), 
+             xerr = errors(sparsity_indicator, axis=0),
+             fmt = '.', lw=1,
+             label='Missingness indicators')
+plt.xlabel('# Nonzero Coefficients')
 plt.ylabel('Train AUC')
 plt.legend()
-plt.ylim(0.7, 0.86)
-plt.savefig('./figs/mice_slurm_train_AUC.png')
+# plt.ylim(0.7, 0.86)
+plt.savefig('./figs/mice_slurm_train_auc.png')
 
 plt.clf()
 
-plt.title('Test AUC vs Negative Log Lambda_0 \n for BRECA dataset')
-plt.errorbar(nllambda, 
-             imputation_ensemble_test_auc.mean()*np.ones(len(nllambda)), 
-             yerr = imputation_ensemble_test_auc.std()/len(imputation_ensemble_test_auc), capsize=3,
-             label='ensemble of 10 MICE imputations')
-plt.errorbar(nllambda, test_auc_no_missing.mean(axis=0), 
-             yerr = errors(test_auc_no_missing, axis=0), capsize=3,
-             label='No missingness handling (single run)')
-plt.errorbar(nllambda, test_auc_indicator.mean(axis=0), 
-             yerr = errors(test_auc_indicator, axis=0), capsize=3,
-             label='Missingness indicators (single run)')
-plt.errorbar(nllambda[no_timeouts_aug], 
-             test_auc_aug[:, no_timeouts_aug].mean(axis=0), 
-             yerr = errors(test_auc_aug[:, no_timeouts_aug], axis=0), capsize=3,
-             label='Missingness with interactions (single run)')
-plt.xlabel('Negative Log Lambda_0')
+plt.title('Test AUC vs # Nonzero Coefficients \n for BRECA dataset')
+plt.hlines(imputation_ensemble_test_auc.mean(), 0,
+           max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
+           label='mean performance, ensemble of 10 MICE imputations') #TODO: add error bars? 
+plt.errorbar(sparsity_no_missing.mean(axis=0), test_auc_no_missing.mean(axis=0), 
+             yerr = errors(test_auc_no_missing, axis=0),
+             xerr = errors(sparsity_no_missing, axis=0),
+             label='No missingness handling', fmt='.', lw=1)
+plt.errorbar(sparsity_aug.mean(axis=0), test_auc_aug.mean(axis=0), 
+             yerr = errors(test_auc_aug, axis=0), 
+             xerr = errors(sparsity_aug, axis=0),
+             fmt = '.', lw=1,
+             label='Missingness with interactions')
+plt.errorbar(sparsity_indicator.mean(axis=0), test_auc_indicator.mean(axis=0), 
+             yerr = errors(test_auc_indicator, axis=0), 
+             xerr = errors(sparsity_indicator, axis=0),
+             fmt = '.', lw=1,
+             label='Missingness indicators')
+plt.xlabel('# Nonzero Coefficients')
 plt.ylabel('Test AUC')
 plt.legend()
-plt.ylim(0.7, 0.86)
-plt.savefig('./figs/mice_slurm_test_AUC.png')
+# plt.ylim(0.7, 0.86)
+plt.savefig('./figs/mice_slurm_test_auc.png')
 
 print('successfully finished execution')
