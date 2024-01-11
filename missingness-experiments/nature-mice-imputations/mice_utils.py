@@ -62,7 +62,7 @@ def get_train_test_binarized(label, predictors, train, test, val,
     else:
         return X_train, X_test, y_train, y_test
 
-def eval_model(model, X_train, X_test, y_train, y_test, provided_lambdas): 
+def eval_model(model, X_train, X_test, y_train, y_test, provided_lambdas, metric_fn): 
     num_coeffs = np.zeros((len(provided_lambdas)))
     train_auc = np.zeros((len(provided_lambdas)))
     test_auc = np.zeros((len(provided_lambdas)))
@@ -74,12 +74,10 @@ def eval_model(model, X_train, X_test, y_train, y_test, provided_lambdas):
         i = provided_lambdas.index(lamby)
 
         train_probs[i] = model.predict(X_train.astype(float),lambda_0=lamby).reshape(-1)
-        fpr, tpr, _ = metrics.roc_curve(y_train, train_probs[i])
-        train_auc[i] = metrics.auc(fpr, tpr)
+        train_auc[i] = metric_fn(y_train, train_probs[i])
 
         test_probs[i] = model.predict(X_test.astype(float),lambda_0=lamby).reshape(-1)
-        fpr, tpr, _ = metrics.roc_curve(y_test, test_probs[i])
-        test_auc[i] = metrics.auc(fpr, tpr)
+        test_auc[i] = metric_fn(y_test, test_probs[i])
 
         coeffs = (model.coeff(lambda_0=lamby).toarray().flatten())[1:] #first entry is intercept
         num_coeffs[i] = (coeffs != 0).sum()

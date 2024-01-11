@@ -22,13 +22,25 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-lambda_grid = [[10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
+lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
 holdouts = np.arange(2)#[0, 1, 2]
 validations = np.arange(5)#[0, 1, 2, 3, 4]
 imputations = 10
 
 dataset = 'FICO'#'BREAST_CANCER'
+
+metric = 'acc'
+
+def calc_auc(y, score): 
+    fpr, tpr, _ = metrics.roc_curve(y, score)
+    return metrics.auc(fpr, tpr)
+METRIC_FN = {
+    'acc': lambda y, score: np.mean(
+        (score > 0.5) == y),
+    'auprc': lambda y, score: metrics.average_precision_score(y, score),
+    'auc': calc_auc
+}
 
 
 #############################################
@@ -85,7 +97,8 @@ for holdout_set in holdouts:
                                        max_support_size=200)
             
             (_, _, val_probs, _, _) = eval_model(
-                model, X_train, X_val, y_train, y_val, lambda_grid[0]
+                model, X_train, X_val, y_train, y_val, lambda_grid[0],
+                METRIC_FN[metric]
                 )
             ensembled_val_aucs = np.zeros(len(lambda_grid[0]))
             
@@ -107,7 +120,8 @@ for holdout_set in holdouts:
                                        num_lambda=None, num_gamma=None, max_support_size=200)#inefficient to search whole grid(TODO)
             
             (train_probs, _, test_probs, _, _) = eval_model(
-                model, X_train, X_test, y_train, y_test, lambda_grid[0]
+                model, X_train, X_test, y_train, y_test, lambda_grid[0], 
+                METRIC_FN[metric]
                 )
             imputation_train_probs[imputation] = train_probs[best_lambda]
             imputation_test_probs[imputation] = test_probs[best_lambda]
@@ -116,11 +130,9 @@ for holdout_set in holdouts:
         ensembled_train_probs = imputation_train_probs.mean(axis=0)
         ensembled_test_probs = imputation_test_probs.mean(axis=0)
 
-        fpr, tpr, _ = metrics.roc_curve(y_train, ensembled_train_probs)
-        imputation_ensemble_train_auc[val_set, holdout_set] = metrics.auc(fpr, tpr)
+        imputation_ensemble_train_auc[val_set, holdout_set] = METRIC_FN[metric](y_train, ensembled_train_probs)
 
-        fpr, tpr, _ = metrics.roc_curve(y_test, ensembled_test_probs)
-        imputation_ensemble_test_auc[val_set, holdout_set] = metrics.auc(fpr, tpr)
+        imputation_ensemble_test_auc[val_set, holdout_set] = METRIC_FN[metric](y_test, ensembled_test_probs)
 
         ######################################
         ### Missingness Indicator Approach ###
@@ -138,33 +150,34 @@ for holdout_set in holdouts:
                                     num_lambda=None, num_gamma=None, max_support_size=200)
         (_, train_auc_no_missing[holdout_set], 
          _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = eval_model(
-            model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0]
+            model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric]
             )
         
         model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=200)
         (_, train_auc_indicator[holdout_set], 
          _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = eval_model(
-            model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0]
+            model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric]
             )
         
         model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
                                     lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=50)
         (_, train_auc_aug[holdout_set], 
          _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = eval_model(
-            model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0]
+            model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0], 
+            METRIC_FN[metric]
             )
 
 #save data to csv: 
 
-np.savetxt(f'experiment_data/{dataset}/train_auc_aug.csv', train_auc_aug)
-np.savetxt(f'experiment_data/{dataset}/train_auc_indicator.csv', train_auc_indicator)
-np.savetxt(f'experiment_data/{dataset}/train_auc_no_missing.csv', train_auc_no_missing)
-np.savetxt(f'experiment_data/{dataset}/test_auc_aug.csv', test_auc_aug)
-np.savetxt(f'experiment_data/{dataset}/test_auc_indicator.csv', test_auc_indicator)
-np.savetxt(f'experiment_data/{dataset}/test_auc_no_missing.csv', test_auc_no_missing)
-np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_train_auc.csv', imputation_ensemble_train_auc)
-np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_test_auc.csv', imputation_ensemble_test_auc)
+np.savetxt(f'experiment_data/{dataset}/train_{metric}_aug.csv', train_auc_aug)
+np.savetxt(f'experiment_data/{dataset}/train_{metric}_indicator.csv', train_auc_indicator)
+np.savetxt(f'experiment_data/{dataset}/train_{metric}_no_missing.csv', train_auc_no_missing)
+np.savetxt(f'experiment_data/{dataset}/test_{metric}_aug.csv', test_auc_aug)
+np.savetxt(f'experiment_data/{dataset}/test_{metric}_indicator.csv', test_auc_indicator)
+np.savetxt(f'experiment_data/{dataset}/test_{metric}_no_missing.csv', test_auc_no_missing)
+np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
+np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
 np.savetxt(f'experiment_data/{dataset}/nllambda.csv', -np.log(lambda_grid[0]))
 
 np.savetxt(f'experiment_data/{dataset}/sparsity_aug.csv', sparsity_aug)
