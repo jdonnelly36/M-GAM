@@ -19,28 +19,31 @@ from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors
+
+dataset = 'FICO'#'BREAST_CANCER'
+
 #load data files from csv: 
 
-train_auc_aug = np.loadtxt('experiment_data/train_auc_aug.csv')
-train_auc_indicator = np.loadtxt('experiment_data/train_auc_indicator.csv')
-train_auc_no_missing = np.loadtxt('experiment_data/train_auc_no_missing.csv')
-test_auc_aug = np.loadtxt('experiment_data/test_auc_aug.csv')
-test_auc_indicator = np.loadtxt('experiment_data/test_auc_indicator.csv')
-test_auc_no_missing = np.loadtxt('experiment_data/test_auc_no_missing.csv')
-imputation_ensemble_train_auc = np.loadtxt('experiment_data/imputation_ensemble_train_auc.csv')
-imputation_ensemble_test_auc = np.loadtxt('experiment_data/imputation_ensemble_test_auc.csv')
-nllambda = np.loadtxt('experiment_data/nllambda.csv')
+train_auc_aug = np.loadtxt(f'experiment_data/{dataset}/train_auc_aug.csv')
+train_auc_indicator = np.loadtxt(f'experiment_data/{dataset}/train_auc_indicator.csv')
+train_auc_no_missing = np.loadtxt(f'experiment_data/{dataset}/train_auc_no_missing.csv')
+test_auc_aug = np.loadtxt(f'experiment_data/{dataset}/test_auc_aug.csv')
+test_auc_indicator = np.loadtxt(f'experiment_data/{dataset}/test_auc_indicator.csv')
+test_auc_no_missing = np.loadtxt(f'experiment_data/{dataset}/test_auc_no_missing.csv')
+imputation_ensemble_train_auc = np.loadtxt(f'experiment_data/{dataset}/imputation_ensemble_train_auc.csv')
+imputation_ensemble_test_auc = np.loadtxt(f'experiment_data/{dataset}/imputation_ensemble_test_auc.csv')
+nllambda = np.loadtxt(f'experiment_data/{dataset}/nllambda.csv')
 
-sparsity_aug = np.loadtxt('experiment_data/sparsity_aug.csv')
-sparsity_indicator = np.loadtxt('experiment_data/sparsity_indicator.csv')
-sparsity_no_missing = np.loadtxt('experiment_data/sparsity_no_missing.csv')
+sparsity_aug = np.loadtxt(f'experiment_data/{dataset}/sparsity_aug.csv')
+sparsity_indicator = np.loadtxt(f'experiment_data/{dataset}/sparsity_indicator.csv')
+sparsity_no_missing = np.loadtxt(f'experiment_data/{dataset}/sparsity_no_missing.csv')
 
 no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
 sparsity_aug = sparsity_aug[:, no_timeouts_aug]
 train_auc_aug = train_auc_aug[:, no_timeouts_aug]
 test_auc_aug = test_auc_aug[:, no_timeouts_aug]
 
-plt.title('Train AUC vs # Nonzero Coefficients \n for BRECA dataset')
+plt.title(f'Train AUC vs # Nonzero Coefficients \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_train_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
            label='mean performance, ensemble of 10 MICE imputations') #TODO: add error bars? 
@@ -62,11 +65,11 @@ plt.xlabel('# Nonzero Coefficients')
 plt.ylabel('Train AUC')
 plt.legend()
 # plt.ylim(0.7, 0.86)
-plt.savefig('./figs/mice_slurm_train_auc.png')
+plt.savefig(f'./figs/{dataset}/mice_slurm_train_auc.png')
 
 plt.clf()
 
-plt.title('Test AUC vs # Nonzero Coefficients \n for BRECA dataset')
+plt.title(f'Test AUC vs # Nonzero Coefficients \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_test_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
            label='mean performance, ensemble of 10 MICE imputations') #TODO: add error bars? 
@@ -88,6 +91,6 @@ plt.xlabel('# Nonzero Coefficients')
 plt.ylabel('Test AUC')
 plt.legend()
 # plt.ylim(0.7, 0.86)
-plt.savefig('./figs/mice_slurm_test_auc.png')
+plt.savefig(f'./figs/{dataset}/mice_slurm_test_auc.png')
 
 print('successfully finished execution')

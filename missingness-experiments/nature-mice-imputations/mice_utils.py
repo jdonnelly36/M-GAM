@@ -51,7 +51,7 @@ def get_train_test_binarized(label, predictors, train, test, val,
     train, val, test = return_imputation(path_prefix, label, predictors, train, test, val)
     train = pd.concat([train, val])#can change to remove validation set entirely, if desired
     
-    X_train, X_test, y_train, y_test = binarize_according_to_train(train, test, quantiles)
+    X_train, X_test, y_train, y_test = binarize_according_to_train(train, test, quantiles, label)
 
     if validation: 
         X_val = X_train[-val.shape[0]:].copy()

@@ -22,11 +22,13 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-lambda_grid = [[10, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
+lambda_grid = [[10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
-holdouts = [0, 1, 2]
-validations = [0, 1, 2, 3, 4]
+holdouts = np.arange(2)#[0, 1, 2]
+validations = np.arange(5)#[0, 1, 2, 3, 4]
 imputations = 10
+
+dataset = 'FICO'#'BREAST_CANCER'
 
 
 #############################################
@@ -53,9 +55,9 @@ sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
     for val_set in validations: 
-        train = pd.read_csv(f'BREAST_CANCER/devel_{holdout_set}_train_{val_set}.csv')
-        val = pd.read_csv(f'BREAST_CANCER/devel_{holdout_set}_val_{val_set}.csv')
-        test = pd.read_csv(f'BREAST_CANCER/holdout_{holdout_set}.csv')
+        train = pd.read_csv(f'{dataset}/devel_{holdout_set}_train_{val_set}.csv')
+        val = pd.read_csv(f'{dataset}/devel_{holdout_set}_val_{val_set}.csv')
+        test = pd.read_csv(f'{dataset}/holdout_{holdout_set}.csv')
         label = train.columns[-1]
         predictors = train.columns[:-1]
 
@@ -75,7 +77,7 @@ for holdout_set in holdouts:
         for imputation in range(imputations):
             X_train, X_val, X_test, y_train, y_val, y_test = get_train_test_binarized(
                 label, predictors, train, test, val, num_quantiles, 
-                f'test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/', 
+                f'{dataset}/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/', 
                 validation=True) #decides quantiles using train and val, not test
             
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
@@ -98,7 +100,7 @@ for holdout_set in holdouts:
             # using these validation-optimal lambdas.
             X_train, X_test, y_train, y_test = get_train_test_binarized(
                 label, predictors, train, test, val, num_quantiles, 
-                f'test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/')
+                f'{dataset}/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/')
 
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
                                        lambda_grid=lambda_grid, 
@@ -129,7 +131,7 @@ for holdout_set in holdouts:
         (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
         y_train_no, y_train_ind, y_train_aug, 
         y_test_no, y_test_ind, y_test_aug) = binarize_and_augment(
-            pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1] 
+            pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
             )
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
@@ -155,19 +157,19 @@ for holdout_set in holdouts:
 
 #save data to csv: 
 
-np.savetxt('experiment_data/train_auc_aug.csv', train_auc_aug)
-np.savetxt('experiment_data/train_auc_indicator.csv', train_auc_indicator)
-np.savetxt('experiment_data/train_auc_no_missing.csv', train_auc_no_missing)
-np.savetxt('experiment_data/test_auc_aug.csv', test_auc_aug)
-np.savetxt('experiment_data/test_auc_indicator.csv', test_auc_indicator)
-np.savetxt('experiment_data/test_auc_no_missing.csv', test_auc_no_missing)
-np.savetxt('experiment_data/imputation_ensemble_train_auc.csv', imputation_ensemble_train_auc)
-np.savetxt('experiment_data/imputation_ensemble_test_auc.csv', imputation_ensemble_test_auc)
-np.savetxt('experiment_data/nllambda.csv', -np.log(lambda_grid[0]))
+np.savetxt(f'experiment_data/{dataset}/train_auc_aug.csv', train_auc_aug)
+np.savetxt(f'experiment_data/{dataset}/train_auc_indicator.csv', train_auc_indicator)
+np.savetxt(f'experiment_data/{dataset}/train_auc_no_missing.csv', train_auc_no_missing)
+np.savetxt(f'experiment_data/{dataset}/test_auc_aug.csv', test_auc_aug)
+np.savetxt(f'experiment_data/{dataset}/test_auc_indicator.csv', test_auc_indicator)
+np.savetxt(f'experiment_data/{dataset}/test_auc_no_missing.csv', test_auc_no_missing)
+np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_train_auc.csv', imputation_ensemble_train_auc)
+np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_test_auc.csv', imputation_ensemble_test_auc)
+np.savetxt(f'experiment_data/{dataset}/nllambda.csv', -np.log(lambda_grid[0]))
 
-np.savetxt('experiment_data/sparsity_aug.csv', sparsity_aug)
-np.savetxt('experiment_data/sparsity_indicator.csv', sparsity_indicator)
-np.savetxt('experiment_data/sparsity_no_missing.csv',sparsity_no_missing)
+np.savetxt(f'experiment_data/{dataset}/sparsity_aug.csv', sparsity_aug)
+np.savetxt(f'experiment_data/{dataset}/sparsity_indicator.csv', sparsity_indicator)
+np.savetxt(f'experiment_data/{dataset}/sparsity_no_missing.csv',sparsity_no_missing)
 
 
 #can also try pickle file of all hyperparameters, and save to a folder with corresponding hash
