@@ -18,10 +18,10 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors
+from mice_utils import errors, uncertainty_bands
 
-dataset = 'FICO'#'BREAST_CANCER'
-metric = 'acc'
+dataset = 'BREAST_CANCER'
+metric = 'auprc'
 
 METRIC_NAME = {
     'acc': 'Accuracy',
@@ -53,21 +53,11 @@ test_auc_aug = test_auc_aug[:, no_timeouts_aug]
 plt.title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_train_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
-           label='mean performance, ensemble of 10 MICE imputations') #TODO: add error bars? 
-plt.errorbar(sparsity_no_missing.mean(axis=0), train_auc_no_missing.mean(axis=0), 
-             yerr = errors(train_auc_no_missing, axis=0),
-             xerr = errors(sparsity_no_missing, axis=0),
-             label='No missingness handling', fmt='.', lw=1)
-plt.errorbar(sparsity_aug.mean(axis=0), train_auc_aug.mean(axis=0), 
-             yerr = errors(train_auc_aug, axis=0), 
-             xerr = errors(sparsity_aug, axis=0),
-             fmt = '.', lw=1,
-             label='Missingness with interactions')
-plt.errorbar(sparsity_indicator.mean(axis=0), train_auc_indicator.mean(axis=0), 
-             yerr = errors(train_auc_indicator, axis=0), 
-             xerr = errors(sparsity_indicator, axis=0),
-             fmt = '.', lw=1,
-             label='Missingness indicators')
+           label='mean performance, ensemble of 10 MICE imputations',
+           color='grey') #TODO: add error bars? 
+uncertainty_bands(sparsity_no_missing, train_auc_no_missing, 'No missingness handling')
+uncertainty_bands(sparsity_aug, train_auc_aug, 'Missingness with interactions')
+uncertainty_bands(sparsity_indicator, train_auc_indicator, 'Missingness indicators') 
 plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Train {METRIC_NAME[metric]}')
 plt.legend()
@@ -79,21 +69,11 @@ plt.clf()
 plt.title(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_test_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
-           label='mean performance, ensemble of 10 MICE imputations') #TODO: add error bars? 
-plt.errorbar(sparsity_no_missing.mean(axis=0), test_auc_no_missing.mean(axis=0), 
-             yerr = errors(test_auc_no_missing, axis=0),
-             xerr = errors(sparsity_no_missing, axis=0),
-             label='No missingness handling', fmt='.', lw=1)
-plt.errorbar(sparsity_aug.mean(axis=0), test_auc_aug.mean(axis=0), 
-             yerr = errors(test_auc_aug, axis=0), 
-             xerr = errors(sparsity_aug, axis=0),
-             fmt = '.', lw=1,
-             label='Missingness with interactions')
-plt.errorbar(sparsity_indicator.mean(axis=0), test_auc_indicator.mean(axis=0), 
-             yerr = errors(test_auc_indicator, axis=0), 
-             xerr = errors(sparsity_indicator, axis=0),
-             fmt = '.', lw=1,
-             label='Missingness indicators')
+           label='mean performance, ensemble of 10 MICE imputations', 
+           color='grey') #TODO: add error bars? 
+uncertainty_bands(sparsity_no_missing, test_auc_no_missing, 'No missingness handling')
+uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
+uncertainty_bands(sparsity_indicator, test_auc_indicator, 'Missingness indicators')
 plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Test {METRIC_NAME[metric]}')
 plt.legend()

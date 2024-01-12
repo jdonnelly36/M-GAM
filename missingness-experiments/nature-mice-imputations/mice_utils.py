@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn import metrics
+import matplotlib.pyplot as plt
 
 def return_imputation(
         path_prefix, label, predictors, train, test, val
@@ -167,3 +167,17 @@ def errors(accs, axis=0, error_bar_type='standard error'):
     else: 
         print(f'Unsupported error bar type: {error_bar_type}. Must be range or confidence interval')
         return 'Error!'
+    
+def uncertainty_bands(x_mat, y_mat, label, facecolor = '#F0F8FF', color='C0', axis=0): 
+    x = x_mat.mean(axis=axis)
+    y = y_mat.mean(axis=axis)
+    yerr = errors(y_mat, axis=0)
+    xerr = errors(x_mat, axis=0)
+
+    plt.errorbar(x, y, xerr=xerr, yerr=yerr, fmt='.', lw=1, label=label)
+
+    # conservative bands: consider max xerr and yerr simultaneously
+    plt.fill_between(np.column_stack([x - xerr, x, x + xerr]).flatten(), 
+                     np.column_stack([y-yerr, y-yerr, y-yerr]).flatten(), 
+                     np.column_stack([y+yerr, y+yerr, y+yerr]).flatten(),
+                     alpha=0.4)
