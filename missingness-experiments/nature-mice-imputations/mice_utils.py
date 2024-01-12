@@ -175,9 +175,31 @@ def uncertainty_bands(x_mat, y_mat, label, facecolor = '#F0F8FF', color='C0', ax
     xerr = errors(x_mat, axis=0)
 
     plt.errorbar(x, y, xerr=xerr, yerr=yerr, fmt='.', lw=1, label=label)
+    # plt.fill_between(x, y-yerr, y+yerr, alpha = 0.4)
 
     # conservative bands: consider max xerr and yerr simultaneously
-    plt.fill_between(np.column_stack([x - xerr, x, x + xerr]).flatten(), 
-                     np.column_stack([y-yerr, y-yerr, y-yerr]).flatten(), 
-                     np.column_stack([y+yerr, y+yerr, y+yerr]).flatten(),
+    # plt.fill_between(np.column_stack([x - xerr, x, x + xerr]).flatten(), 
+    #                  np.column_stack([y-yerr, y-yerr, y-yerr]).flatten(), 
+    #                  np.column_stack([y+yerr, y+yerr, y+yerr]).flatten(),
+    #                  alpha=0.4)
+    
+    ordered_x = np.column_stack([x - xerr, x, x + xerr]).flatten()
+    increasing_x_indices = np.argsort(ordered_x)
+    ordered_y_lower = np.column_stack([y-yerr, y-yerr, y-yerr]).flatten()
+    ordered_y_upper = np.column_stack([y+yerr, y+yerr, y+yerr]).flatten()
+    for i in range(ordered_x.shape[0]):
+        if (ordered_x[i] < ordered_x[:i]).any(): # if this item has smaller x value than for some preceding item
+            #for every preceding x value in the list that was larger, 
+            # we want to consider the minimum of its lower bound and ours
+            for j in range(i): 
+                if ordered_x[j] > ordered_x[i]: 
+                    ordered_y_lower[i] = min(ordered_y_lower[i], ordered_y_lower[j])
+        elif (ordered_x[i] > ordered_x[i:]).any(): #if this item has larger x val than for some following item
+            # for every proceding item in the list that has a smaller x value, we want to consider the max of its upper bound and ours
+            for j in range(i+1, ordered_x.shape[0]): 
+                if ordered_x[j] < ordered_x[i]: 
+                    ordered_y_upper[i] = max(ordered_y_upper[i], ordered_y_upper[j])
+    plt.fill_between(ordered_x[increasing_x_indices], 
+                     ordered_y_lower[increasing_x_indices], 
+                     ordered_y_upper[increasing_x_indices],
                      alpha=0.4)
