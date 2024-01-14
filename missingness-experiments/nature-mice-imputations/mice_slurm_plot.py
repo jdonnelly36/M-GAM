@@ -20,13 +20,14 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands
 
-dataset = 'BREAST_CANCER'
-metric = 'auprc'
+dataset = 'FICO'
+metric = 'acc'
 
 METRIC_NAME = {
     'acc': 'Accuracy',
     'auc': 'AUC',
-    'auprc': 'AUPRC'
+    'auprc': 'AUPRC',
+    'loss': 'Exponential Loss'
 }
 
 #load data files from csv: 
@@ -49,6 +50,16 @@ no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
 sparsity_aug = sparsity_aug[:, no_timeouts_aug]
 train_auc_aug = train_auc_aug[:, no_timeouts_aug]
 test_auc_aug = test_auc_aug[:, no_timeouts_aug]
+
+no_timeouts_indicator = (train_auc_indicator > 0).all(axis=0)
+sparsity_indicator = sparsity_indicator[:, no_timeouts_indicator]
+train_auc_indicator = train_auc_indicator[:, no_timeouts_indicator]
+test_auc_indicator = test_auc_indicator[:, no_timeouts_indicator]
+
+no_timeouts_no_missing = (train_auc_no_missing > 0).all(axis=0)
+sparsity_no_missing = sparsity_no_missing[:, no_timeouts_no_missing]
+train_auc_no_missing = train_auc_no_missing[:, no_timeouts_no_missing]
+test_auc_no_missing = test_auc_no_missing[:, no_timeouts_no_missing]
 
 plt.title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_train_auc.mean(), 0,

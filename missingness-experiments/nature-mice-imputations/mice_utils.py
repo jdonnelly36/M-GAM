@@ -85,6 +85,272 @@ def eval_model(model, X_train, X_test, y_train, y_test, provided_lambdas, metric
 
     return train_probs, train_auc, test_probs, test_auc, num_coeffs
 
+def binarize_and_augment_median(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8], label='Overall Survival Status'):
+    n_train, d_train = train_df.shape
+    n_test, d_test = test_df.shape
+    train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
+    train_no_missing, test_no_missing = {}, {}
+    for c in train_df.columns:
+        if c == label:
+            continue
+        missing_col_name = f'{c} missing'
+        missing_row_train = np.zeros(n_train)
+        missing_row_test = np.zeros(n_test)
+        missing_row_train[train_df[c].isna()] = 1
+        missing_row_test[test_df[c].isna()] = 1
+
+        train_quantiles = list(train_df[c].quantile(quantiles_for_binarizing).unique())
+        med = train_df[c].median()
+        
+        for v in train_quantiles:
+            new_col_name = f'{c} <= {v}'
+
+            new_row_train = np.zeros(n_train)
+            new_row_train[train_df[c] <= v] = 1
+            if med <= v:
+                new_row_train[train_df[c].isna()] = 1
+            train_no_missing[new_col_name] = new_row_train
+            train_binned[new_col_name] = new_row_train
+            train_augmented_binned[new_col_name] = new_row_train
+            
+            new_row_test = np.zeros(n_test)
+            new_row_test[test_df[c] <= v] = 1
+            if med <= v: 
+                new_row_test[test_df[c].isna()] = 1
+            test_no_missing[new_col_name] = new_row_test
+            test_binned[new_col_name] = new_row_test
+            test_augmented_binned[new_col_name] = new_row_test
+
+        train_binned[missing_col_name] = missing_row_train
+        train_augmented_binned[missing_col_name] = missing_row_train
+    
+        test_binned[missing_col_name] = missing_row_test
+        test_augmented_binned[missing_col_name] = missing_row_test
+    
+    #TODO: if considering missingness interactions, do we use imputed values for the feature interacting with missingness, if it is also missing?
+    # current behaviour is to do so. 
+    for c_outer in train_df.columns:
+        if c_outer == label:
+            continue
+        for c_inner in train_df.columns:
+            med = train_df[c].median()
+            for v in train_df[c_inner].quantile(quantiles_for_binarizing).unique():
+                if c_inner == label:
+                    continue
+                else:
+                    missing_ixn_name = f'{c_outer} missing & {c_inner} <= {v}'
+                    missing_ixn_row_train = np.zeros(n_train)
+                    missing_ixn_row_test = np.zeros(n_test)
+
+                    missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner] <= v)] = 1
+                    missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner] <= v)] = 1
+
+                    if med <= v: 
+                        missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner].isna())] = 1
+                        missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner].isna())] = 1
+
+                    train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                    test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                        
+    train_binned[label] = train_df[label]
+    test_binned[label] = test_df[label]
+    train_no_missing[label] = train_df[label]
+    test_no_missing[label] = test_df[label]
+    train_augmented_binned[label] = train_df[label]
+    test_augmented_binned[label] = test_df[label]
+
+    
+    return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != label]].values, 
+            pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != label]].values, 
+            pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != label]].values,
+            pd.DataFrame(test_no_missing)[[c for c in test_no_missing.keys() if c != label]].values, 
+            pd.DataFrame(test_binned)[[c for c in test_binned.keys() if c != label]].values, 
+            pd.DataFrame(test_augmented_binned)[[c for c in test_augmented_binned.keys() if c != label]].values, 
+            pd.DataFrame(train_no_missing)[label].values, 
+            pd.DataFrame(train_binned)[label].values, 
+            pd.DataFrame(train_augmented_binned)[label].values,
+            pd.DataFrame(test_no_missing)[label].values, 
+            pd.DataFrame(test_binned)[label].values, 
+            pd.DataFrame(test_augmented_binned)[label].values, 
+    )
+
+def binarize_and_augment_mean(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8], label='Overall Survival Status'):
+    n_train, d_train = train_df.shape
+    n_test, d_test = test_df.shape
+    train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
+    train_no_missing, test_no_missing = {}, {}
+    for c in train_df.columns:
+        if c == label:
+            continue
+        missing_col_name = f'{c} missing'
+        missing_row_train = np.zeros(n_train)
+        missing_row_test = np.zeros(n_test)
+        missing_row_train[train_df[c].isna()] = 1
+        missing_row_test[test_df[c].isna()] = 1
+
+        train_quantiles = list(train_df[c].quantile(quantiles_for_binarizing).unique())
+        med = train_df[c].mean()
+        
+        for v in train_quantiles:
+            new_col_name = f'{c} <= {v}'
+
+            new_row_train = np.zeros(n_train)
+            new_row_train[train_df[c] <= v] = 1
+            if med <= v:
+                new_row_train[train_df[c].isna()] = 1
+            train_no_missing[new_col_name] = new_row_train
+            train_binned[new_col_name] = new_row_train
+            train_augmented_binned[new_col_name] = new_row_train
+            
+            new_row_test = np.zeros(n_test)
+            new_row_test[test_df[c] <= v] = 1
+            if med <= v: 
+                new_row_test[test_df[c].isna()] = 1
+            test_no_missing[new_col_name] = new_row_test
+            test_binned[new_col_name] = new_row_test
+            test_augmented_binned[new_col_name] = new_row_test
+
+        train_binned[missing_col_name] = missing_row_train
+        train_augmented_binned[missing_col_name] = missing_row_train
+    
+        test_binned[missing_col_name] = missing_row_test
+        test_augmented_binned[missing_col_name] = missing_row_test
+    
+    #TODO: if considering missingness interactions, do we use imputed values for the feature interacting with missingness, if it is also missing?
+    # current behaviour is to do so. 
+    for c_outer in train_df.columns:
+        if c_outer == label:
+            continue
+        for c_inner in train_df.columns:
+            med = train_df[c].mean()
+            for v in train_df[c_inner].quantile(quantiles_for_binarizing).unique():
+                if c_inner == label:
+                    continue
+                else:
+                    missing_ixn_name = f'{c_outer} missing & {c_inner} <= {v}'
+                    missing_ixn_row_train = np.zeros(n_train)
+                    missing_ixn_row_test = np.zeros(n_test)
+
+                    missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner] <= v)] = 1
+                    missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner] <= v)] = 1
+
+                    if med <= v: 
+                        missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner].isna())] = 1
+                        missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner].isna())] = 1
+
+                    train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                    test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                        
+    train_binned[label] = train_df[label]
+    test_binned[label] = test_df[label]
+    train_no_missing[label] = train_df[label]
+    test_no_missing[label] = test_df[label]
+    train_augmented_binned[label] = train_df[label]
+    test_augmented_binned[label] = test_df[label]
+
+    
+    return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != label]].values, 
+            pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != label]].values, 
+            pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != label]].values,
+            pd.DataFrame(test_no_missing)[[c for c in test_no_missing.keys() if c != label]].values, 
+            pd.DataFrame(test_binned)[[c for c in test_binned.keys() if c != label]].values, 
+            pd.DataFrame(test_augmented_binned)[[c for c in test_augmented_binned.keys() if c != label]].values, 
+            pd.DataFrame(train_no_missing)[label].values, 
+            pd.DataFrame(train_binned)[label].values, 
+            pd.DataFrame(train_augmented_binned)[label].values,
+            pd.DataFrame(test_no_missing)[label].values, 
+            pd.DataFrame(test_binned)[label].values, 
+            pd.DataFrame(test_augmented_binned)[label].values, 
+    )
+
+def binarize_and_augment_imputation(train_df, test_df, imputed_train_df, imputed_test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8], label='Overall Survival Status'):
+    n_train, d_train = train_df.shape
+    n_test, d_test = test_df.shape
+    train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
+    train_no_missing, test_no_missing = {}, {}
+    for c in train_df.columns:
+        if c == label:
+            continue
+        missing_col_name = f'{c} missing'
+        missing_row_train = np.zeros(n_train)
+        missing_row_test = np.zeros(n_test)
+        missing_row_train[train_df[c].isna()] = 1
+        missing_row_test[test_df[c].isna()] = 1
+
+        train_quantiles = list(train_df[c].quantile(quantiles_for_binarizing).unique())
+        for v in train_quantiles:
+            new_col_name = f'{c} <= {v}'
+
+            new_row_train = np.zeros(n_train)
+            new_row_train[train_df[c] <= v] = 1
+            new_row_train[train_df[c].isna()] = imputed_train_df[c][train_df[c].isna()] <= v
+            train_no_missing[new_col_name] = new_row_train
+            train_binned[new_col_name] = new_row_train
+            train_augmented_binned[new_col_name] = new_row_train
+            
+            new_row_test = np.zeros(n_test)
+            new_row_test[test_df[c] <= v] = 1
+            new_row_test[test_df[c].isna()] = imputed_test_df[c][test_df[c].isna()] <= v
+            test_no_missing[new_col_name] = new_row_test
+            test_binned[new_col_name] = new_row_test
+            test_augmented_binned[new_col_name] = new_row_test
+
+        train_binned[missing_col_name] = missing_row_train
+        train_augmented_binned[missing_col_name] = missing_row_train
+    
+        test_binned[missing_col_name] = missing_row_test
+        test_augmented_binned[missing_col_name] = missing_row_test
+    
+    #TODO: if considering missingness interactions, do we use imputed values for the feature interacting with missingness, if it is also missing?
+    # current behaviour is to do so. 
+    for c_outer in train_df.columns:
+        if c_outer == label:
+            continue
+        for c_inner in train_df.columns:
+            med = train_df[c].median()
+            for v in train_df[c_inner].quantile(quantiles_for_binarizing).unique():
+                if c_inner == label:
+                    continue
+                else:
+                    missing_ixn_name = f'{c_outer} missing & {c_inner} <= {v}'
+                    missing_ixn_row_train = np.zeros(n_train)
+                    missing_ixn_row_test = np.zeros(n_test)
+
+                    missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner] <= v)] = 1
+                    missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner] <= v)] = 1
+
+                    missing_ixn_row_train[(train_df[c_outer].isna()) & 
+                                          (train_df[c_inner].isna()) & 
+                                          (imputed_train_df[c_inner] <= v)] = 1
+                    missing_ixn_row_test[(test_df[c_outer].isna()) &  
+                                         (test_df[c_inner].isna()) & 
+                                         (imputed_test_df[c_inner] <= v)] = 1
+
+                    train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                    test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                        
+    train_binned[label] = train_df[label]
+    test_binned[label] = test_df[label]
+    train_no_missing[label] = train_df[label]
+    test_no_missing[label] = test_df[label]
+    train_augmented_binned[label] = train_df[label]
+    test_augmented_binned[label] = test_df[label]
+
+    
+    return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != label]].values, 
+            pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != label]].values, 
+            pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != label]].values,
+            pd.DataFrame(test_no_missing)[[c for c in test_no_missing.keys() if c != label]].values, 
+            pd.DataFrame(test_binned)[[c for c in test_binned.keys() if c != label]].values, 
+            pd.DataFrame(test_augmented_binned)[[c for c in test_augmented_binned.keys() if c != label]].values, 
+            pd.DataFrame(train_no_missing)[label].values, 
+            pd.DataFrame(train_binned)[label].values, 
+            pd.DataFrame(train_augmented_binned)[label].values,
+            pd.DataFrame(test_no_missing)[label].values, 
+            pd.DataFrame(test_binned)[label].values, 
+            pd.DataFrame(test_augmented_binned)[label].values, 
+    )
+
 def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8], label='Overall Survival Status'):
     n_train, d_train = train_df.shape
     n_test, d_test = test_df.shape
@@ -200,6 +466,45 @@ def uncertainty_bands(x_mat, y_mat, label, facecolor = '#F0F8FF', color='C0', ax
                 if ordered_x[j] < ordered_x[i]: 
                     ordered_y_upper[i] = max(ordered_y_upper[i], ordered_y_upper[j])
     plt.fill_between(ordered_x[increasing_x_indices], 
+                     ordered_y_lower[increasing_x_indices], 
+                     ordered_y_upper[increasing_x_indices],
+                     alpha=0.4)
+    
+def uncertainty_bands_subplot(x_mat, y_mat, label, ax, facecolor = '#F0F8FF', color='C0', axis=0): 
+    x = x_mat.mean(axis=axis)
+    y = y_mat.mean(axis=axis)
+    yerr = errors(y_mat, axis=0)
+    xerr = errors(x_mat, axis=0)
+
+    if label is not None: 
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, fmt='.', lw=1, label=label)
+    else: 
+        ax.errorbar(x, y, xerr=xerr, yerr=yerr, fmt='.', lw=1)
+    # plt.fill_between(x, y-yerr, y+yerr, alpha = 0.4)
+
+    # conservative bands: consider max xerr and yerr simultaneously
+    # plt.fill_between(np.column_stack([x - xerr, x, x + xerr]).flatten(), 
+    #                  np.column_stack([y-yerr, y-yerr, y-yerr]).flatten(), 
+    #                  np.column_stack([y+yerr, y+yerr, y+yerr]).flatten(),
+    #                  alpha=0.4)
+    
+    ordered_x = np.column_stack([x - xerr, x, x + xerr]).flatten()
+    increasing_x_indices = np.argsort(ordered_x)
+    ordered_y_lower = np.column_stack([y-yerr, y-yerr, y-yerr]).flatten()
+    ordered_y_upper = np.column_stack([y+yerr, y+yerr, y+yerr]).flatten()
+    for i in range(ordered_x.shape[0]):
+        if (ordered_x[i] < ordered_x[:i]).any(): # if this item has smaller x value than for some preceding item
+            #for every preceding x value in the list that was larger, 
+            # we want to consider the minimum of its lower bound and ours
+            for j in range(i): 
+                if ordered_x[j] > ordered_x[i]: 
+                    ordered_y_lower[i] = min(ordered_y_lower[i], ordered_y_lower[j])
+        elif (ordered_x[i] > ordered_x[i:]).any(): #if this item has larger x val than for some following item
+            # for every proceding item in the list that has a smaller x value, we want to consider the max of its upper bound and ours
+            for j in range(i+1, ordered_x.shape[0]): 
+                if ordered_x[j] < ordered_x[i]: 
+                    ordered_y_upper[i] = max(ordered_y_upper[i], ordered_y_upper[j])
+    ax.fill_between(ordered_x[increasing_x_indices], 
                      ordered_y_lower[increasing_x_indices], 
                      ordered_y_upper[increasing_x_indices],
                      alpha=0.4)

@@ -24,13 +24,15 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 num_quantiles = 8
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
-holdouts = np.arange(2)#[0, 1, 2]
-validations = np.arange(5)#[0, 1, 2, 3, 4]
+holdouts = np.arange(5)#[0, 1, 2]
+validations = np.arange(10)#[0, 1, 2, 3, 4]
 imputations = 10
 
-dataset = 'FICO'#'BREAST_CANCER'
+dataset = 'FICO'
 
 metric = 'acc'
+mice_validation_metric = 'acc'
+s_size=60
 
 def calc_auc(y, score): 
     fpr, tpr, _ = metrics.roc_curve(y, score)
@@ -39,7 +41,8 @@ METRIC_FN = {
     'acc': lambda y, score: np.mean(
         (score > 0.5) == y),
     'auprc': lambda y, score: metrics.average_precision_score(y, score),
-    'auc': calc_auc
+    'auc': calc_auc, 
+    'loss': lambda y, probs: np.exp(np.log(probs/(1 - probs))*-1/2*y).mean()
 }
 
 
@@ -94,7 +97,7 @@ for holdout_set in holdouts:
             
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
                                        lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, 
-                                       max_support_size=200)
+                                       max_support_size=s_size)
             
             (_, _, val_probs, _, _) = eval_model(
                 model, X_train, X_val, y_train, y_val, lambda_grid[0],
@@ -103,8 +106,7 @@ for holdout_set in holdouts:
             ensembled_val_aucs = np.zeros(len(lambda_grid[0]))
             
             for i in range(len(lambda_grid[0])):
-                fpr, tpr, _ = metrics.roc_curve(y_val, val_probs[i])
-                ensembled_val_aucs[i] = metrics.auc(fpr, tpr)
+                ensembled_val_aucs[i] = METRIC_FN[mice_validation_metric](y_val, val_probs[i])
             best_lambda = np.argmax(ensembled_val_aucs) #not optimal runtime, but should not be an issue
             best_lambdas[imputation] = best_lambda
 
@@ -117,7 +119,7 @@ for holdout_set in holdouts:
 
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
                                        lambda_grid=lambda_grid, 
-                                       num_lambda=None, num_gamma=None, max_support_size=200)#inefficient to search whole grid(TODO)
+                                       num_lambda=None, num_gamma=None, max_support_size=s_size)#inefficient to search whole grid(TODO)
             
             (train_probs, _, test_probs, _, _) = eval_model(
                 model, X_train, X_test, y_train, y_test, lambda_grid[0], 
@@ -147,21 +149,21 @@ for holdout_set in holdouts:
             )
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
-                                    num_lambda=None, num_gamma=None, max_support_size=200)
+                                    num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_no_missing[holdout_set], 
          _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = eval_model(
             model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric]
             )
         
         model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
-                                    num_lambda=None, num_gamma=None, max_support_size=200)
+                                    num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_indicator[holdout_set], 
          _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = eval_model(
             model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric]
             )
         
         model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
-                                    lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=50)
+                                    lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_aug[holdout_set], 
          _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = eval_model(
             model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0], 
@@ -176,8 +178,8 @@ np.savetxt(f'experiment_data/{dataset}/train_{metric}_no_missing.csv', train_auc
 np.savetxt(f'experiment_data/{dataset}/test_{metric}_aug.csv', test_auc_aug)
 np.savetxt(f'experiment_data/{dataset}/test_{metric}_indicator.csv', test_auc_indicator)
 np.savetxt(f'experiment_data/{dataset}/test_{metric}_no_missing.csv', test_auc_no_missing)
-np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
-np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
+np.savetxt(f'experiment_data/{dataset}/{s_size}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
+np.savetxt(f'experiment_data/{dataset}/{s_size}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
 np.savetxt(f'experiment_data/{dataset}/nllambda.csv', -np.log(lambda_grid[0]))
 
 np.savetxt(f'experiment_data/{dataset}/sparsity_aug.csv', sparsity_aug)
