@@ -20,6 +20,8 @@ DATASETS = [
     "MIMIC",
     "NHSX_COVID19",
     "BREAST_CANCER",
+    "FICO", 
+    "FICO_MNAR"
 ]
 IMPUTATIONS = ["Mean", "MICE", "MissForest", "MIWAE", "GAIN"]
 PERCENTAGES = {
@@ -28,6 +30,8 @@ PERCENTAGES = {
     "MIMIC": [0.25, 0.5],
     "NHSX_COVID19": [0],
     "BREAST_CANCER": [0],
+    "FICO": [0],
+    "FICO_MNAR": [0]
 }
 N_HOLDOUT_SETS = 3
 N_VAL_SETS = 5  # 5 validation sets per holdout set

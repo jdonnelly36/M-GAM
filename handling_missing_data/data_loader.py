@@ -347,3 +347,25 @@ class DataLoaderBreast(_DataLoaderBase):
 
 
 dataloaders["BREAST_CANCER"] = DataLoaderBreast
+
+class DataLoaderFico(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/FICO")
+        self.outcome_col = "PoorRiskPerformance"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["FICO"] = DataLoaderFico
+
+class DataLoaderFico_MNAR(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/FICO_MNAR")
+        self.outcome_col = "PoorRiskPerformance"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["FICO_MNAR"] = DataLoaderFico
