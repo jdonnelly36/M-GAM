@@ -348,6 +348,42 @@ class DataLoaderBreast(_DataLoaderBase):
 
 dataloaders["BREAST_CANCER"] = DataLoaderBreast
 
+class DataLoaderBreast_MAR(_DataLoaderBase):
+    onehot_encoder = None
+    ordinal_encoder = None
+    encoded_colnames = None
+    cat_colnames = None
+    cols = None
+    cols_path = "Breast_cancer_cols.json"
+    factor_levels_path = "Breast_factor_levels.json"
+
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/BREAST_CANCER_MAR"
+        self.outcome_col = "Overall Survival Status"
+
+    def extract_cat_vars(self, one_hot: bool) -> tuple[list[int], list[int]]:
+        cols = self.get_cols_data()
+
+        if one_hot:
+            cols_onehot = cols["onehot"]
+            return cols_onehot[0], cols_onehot[1]
+
+        cols_encoded = cols["encoded"]
+        return cols_encoded[0], cols_encoded[1]
+
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+    def onehot_to_ord(self, df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
+        return self.onehot_to_ord_multicat(df)
+
+    def ord_to_onehot(self, data: np.ndarray) -> np.ndarray:
+        return self.ord_to_onehot_multicat(data)
+
+
+dataloaders["BREAST_CANCER_MAR"] = DataLoaderBreast_MAR
+
 class DataLoaderFico(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
@@ -359,7 +395,7 @@ class DataLoaderFico(_DataLoaderBase):
 
 dataloaders["FICO"] = DataLoaderFico
 
-class DataLoaderFico_MNAR(_DataLoaderBase): 
+class DataLoaderFico_MAR(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
         self.datadir = ("DATA/FICO_MNAR")
@@ -368,4 +404,4 @@ class DataLoaderFico_MNAR(_DataLoaderBase):
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
         return self._data_paths_natural(experiment)
 
-dataloaders["FICO_MNAR"] = DataLoaderFico
+dataloaders["FICO_MAR"] = DataLoaderFico_MAR
