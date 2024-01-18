@@ -253,6 +253,34 @@ class DataLoaderSynthetic(_DataLoaderBase):
 
 dataloaders["SYNTHETIC"] = DataLoaderSynthetic
 
+class DataLoaderSynthetic_MAR(DataLoaderSynthetic):
+    def __init__(self):
+        super().__init__()
+        self.datadir = (
+            "DATA/SYNTHETIC_MAR/SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE"
+        )
+
+
+dataloaders["SYNTHETIC_MAR"] = DataLoaderSynthetic_MAR
+
+class DataLoaderSynthetic_MAR_25(DataLoaderSynthetic):
+    def __init__(self):
+        super().__init__()
+        self.datadir = (
+            "DATA/SYNTHETIC_MAR/SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE/0.25"
+        )
+
+dataloaders["SYNTHETIC_MAR_25"] = DataLoaderSynthetic_MAR_25
+
+class DataLoaderSynthetic_MAR_50(DataLoaderSynthetic):
+    def __init__(self):
+        super().__init__()
+        self.datadir = (
+            "DATA/SYNTHETIC_MAR/SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE/0.5"
+        )
+
+dataloaders["SYNTHETIC_MAR_50"] = DataLoaderSynthetic_MAR_50
+
 
 class DataLoaderSyntheticCategorical(_DataLoaderBase):
     onehot_encoder = None
@@ -290,6 +318,35 @@ class DataLoaderSyntheticCategorical(_DataLoaderBase):
 
 dataloaders["SYNTHETIC_CATEGORICAL"] = DataLoaderSyntheticCategorical
 
+class DataLoaderSyntheticCategorical_MAR(DataLoaderSyntheticCategorical):
+    def __init__(self):
+        super().__init__()
+        self.datadir = (
+            "DATA/SYNTHETIC_MAR/SYNTHETIC_CATEGORICAL"
+        )
+
+
+dataloaders["SYNTHETIC_CATEGORICAL_MAR"] = DataLoaderSyntheticCategorical_MAR
+
+class DataLoaderSyntheticCategorical_MAR_25(DataLoaderSyntheticCategorical):
+    def __init__(self):
+        super().__init__()
+        self.datadir = (
+            "DATA/SYNTHETIC_MAR/SYNTHETIC_CATEGORICAL/0.25"
+        )
+
+
+dataloaders["SYNTHETIC_CATEGORICAL_MAR_25"] = DataLoaderSyntheticCategorical_MAR_25
+
+class DataLoaderSyntheticCategorical_MAR_50(DataLoaderSyntheticCategorical):
+    def __init__(self):
+        super().__init__()
+        self.datadir = (
+            "DATA/SYNTHETIC_MAR/SYNTHETIC_CATEGORICAL/0.5"
+        )
+
+
+dataloaders["SYNTHETIC_CATEGORICAL_MAR_50"] = DataLoaderSyntheticCategorical_MAR_50
 
 class DataLoaderNHSX(_DataLoaderBase):
     cols = None
@@ -384,6 +441,27 @@ class DataLoaderBreast_MAR(_DataLoaderBase):
 
 dataloaders["BREAST_CANCER_MAR"] = DataLoaderBreast_MAR
 
+class DataLoaderBreast_MAR_pt4(DataLoaderBreast_MAR):
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/BREAST_CANCER_MAR_pt4"
+
+dataloaders["BREAST_CANCER_MAR_pt4"] = DataLoaderBreast_MAR_pt4
+
+class DataLoaderBreast_MAR_25(DataLoaderBreast_MAR):
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/BREAST_CANCER_MAR/0.25"
+
+dataloaders["BREAST_CANCER_MAR_25"] = DataLoaderBreast_MAR_25
+
+class DataLoaderBreast_MAR_50(DataLoaderBreast_MAR):
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/BREAST_CANCER_MAR/0.5"
+
+dataloaders["BREAST_CANCER_MAR_50"] = DataLoaderBreast_MAR_50
+
 class DataLoaderFico(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
@@ -398,10 +476,23 @@ dataloaders["FICO"] = DataLoaderFico
 class DataLoaderFico_MAR(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/FICO_MNAR")
+        self.datadir = ("DATA/FICO_MAR")
         self.outcome_col = "PoorRiskPerformance"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
         return self._data_paths_natural(experiment)
 
 dataloaders["FICO_MAR"] = DataLoaderFico_MAR
+
+class DataLoaderFico_MAR_25(DataLoaderFico_MAR): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/FICO_MAR/0.25")
+dataloaders["FICO_MAR_25"] = DataLoaderFico_MAR_25
+
+class DataLoaderFico_MAR_50(DataLoaderFico_MAR): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/FICO_MAR/0.5")
+dataloaders["FICO_MAR_50"] = DataLoaderFico_MAR_50
+    
