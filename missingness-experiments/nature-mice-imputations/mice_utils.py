@@ -5,15 +5,15 @@ import matplotlib.pyplot as plt
 def return_imputation(
         path_prefix, label, predictors, train, test, val
         ):
-    raw_imputed_train = np.load(path_prefix+'imputed_train_x.npy')
+    raw_imputed_train = np.load(path_prefix+'imputed_train_x.npy', allow_pickle=True)
     imputed_train = pd.DataFrame(raw_imputed_train, columns=predictors)
     imputed_train[label] = train[label]
 
-    raw_imputed_val = np.load(path_prefix+'imputed_val_x.npy')
+    raw_imputed_val = np.load(path_prefix+'imputed_val_x.npy', allow_pickle=True)
     imputed_val = pd.DataFrame(raw_imputed_val, columns=predictors)
     imputed_val[label] = val[label]
 
-    raw_imputed_test = np.load(path_prefix+'imputed_test_x.npy')
+    raw_imputed_test = np.load(path_prefix+'imputed_test_x.npy', allow_pickle=True)
     imputed_test = pd.DataFrame(raw_imputed_test, columns=predictors)
     imputed_test[label] = test[label]
 

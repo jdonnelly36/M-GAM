@@ -20,8 +20,19 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands
 
-dataset = 'FICO'
-metric = 'acc'
+dataset = 'BREAST_CANCER_MAR_50'
+metric = 'auc'
+
+DATASET_NAME = {
+    'FICO': 'FICO',
+    'BREAST_CANCER': 'BREAST_CANCER', 
+    'FICO_MAR': 'Synthetic',
+    'FICO_MAR_25': 'Synthetic Missingness @ rate=0.25, FICO',
+    'FICO_MAR_50': 'Synthetic Missingness @ rate=0.5, FICO',
+    'BREAST_CANCER_MAR': 'BREAST_CANCER + Synthetic Missingness',
+    'BREAST_CANCER_MAR_25': 'Synthetic Missingness 0.25, BREAST_CANCER',
+    'BREAST_CANCER_MAR_50': 'Synthetic Missingness 0.5, BREAST_CANCER'
+}
 
 METRIC_NAME = {
     'acc': 'Accuracy',
@@ -29,6 +40,8 @@ METRIC_NAME = {
     'auprc': 'AUPRC',
     'loss': 'Exponential Loss'
 }
+
+s_size_folder = '150/'
 
 #load data files from csv: 
 
@@ -38,8 +51,8 @@ train_auc_no_missing = np.loadtxt(f'experiment_data/{dataset}/train_{metric}_no_
 test_auc_aug = np.loadtxt(f'experiment_data/{dataset}/test_{metric}_aug.csv')
 test_auc_indicator = np.loadtxt(f'experiment_data/{dataset}/test_{metric}_indicator.csv')
 test_auc_no_missing = np.loadtxt(f'experiment_data/{dataset}/test_{metric}_no_missing.csv')
-imputation_ensemble_train_auc = np.loadtxt(f'experiment_data/{dataset}/imputation_ensemble_train_{metric}.csv')
-imputation_ensemble_test_auc = np.loadtxt(f'experiment_data/{dataset}/imputation_ensemble_test_{metric}.csv')
+imputation_ensemble_train_auc = np.loadtxt(f'experiment_data/{dataset}/{s_size_folder}imputation_ensemble_train_{metric}.csv')
+imputation_ensemble_test_auc = np.loadtxt(f'experiment_data/{dataset}/{s_size_folder}imputation_ensemble_test_{metric}.csv')
 nllambda = np.loadtxt(f'experiment_data/{dataset}/nllambda.csv')
 
 sparsity_aug = np.loadtxt(f'experiment_data/{dataset}/sparsity_aug.csv')
@@ -61,6 +74,10 @@ sparsity_no_missing = sparsity_no_missing[:, no_timeouts_no_missing]
 train_auc_no_missing = train_auc_no_missing[:, no_timeouts_no_missing]
 test_auc_no_missing = test_auc_no_missing[:, no_timeouts_no_missing]
 
+fig_dir = f'./figs/{dataset}/'
+if not os.path.exists(fig_dir):
+    os.makedirs(fig_dir)
+
 plt.title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_train_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
@@ -77,7 +94,7 @@ plt.savefig(f'./figs/{dataset}/mice_slurm_train_{metric}.png')
 
 plt.clf()
 
-plt.title(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
+plt.title(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {DATASET_NAME[dataset]} Dataset')
 plt.hlines(imputation_ensemble_test_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
            label='mean performance, ensemble of 10 MICE imputations', 
