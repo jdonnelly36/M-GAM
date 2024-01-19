@@ -20,8 +20,8 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands
 
-dataset = 'BREAST_CANCER_MAR_50'
-metric = 'auc'
+dataset = 'FICO'
+metric = 'acc'
 
 DATASET_NAME = {
     'FICO': 'FICO',
@@ -31,7 +31,13 @@ DATASET_NAME = {
     'FICO_MAR_50': 'Synthetic Missingness @ rate=0.5, FICO',
     'BREAST_CANCER_MAR': 'BREAST_CANCER + Synthetic Missingness',
     'BREAST_CANCER_MAR_25': 'Synthetic Missingness 0.25, BREAST_CANCER',
-    'BREAST_CANCER_MAR_50': 'Synthetic Missingness 0.5, BREAST_CANCER'
+    'BREAST_CANCER_MAR_50': 'Synthetic Missingness 0.5, BREAST_CANCER', 
+    'SYNTHETIC_MAR': 'Synthetic MAR',
+    'SYNTHETIC_MAR_50': 'Synthetic data, MAR missingness 0.5',
+    'SYNTHETIC_MAR_25': 'Synthetic data, MAR missingness 0.5',
+    'SYNTHETIC_CATEGORICAL_MAR': 'Synthetic Categorical MAR',
+    'SYNTHETIC_CATEGORICAL_MAR_50': 'Synthetic Categorical data, MAR missingness 0.5',
+    'SYNTHETIC_CATEGORICAL_MAR_25': 'Synthetic Categorical data, MAR missingness 0.5',
 }
 
 METRIC_NAME = {
@@ -42,22 +48,29 @@ METRIC_NAME = {
 }
 
 s_size_folder = '150/'
+train_miss = 0
+test_miss = train_miss
+s_size_cutoff = 60
 
 #load data files from csv: 
 
-train_auc_aug = np.loadtxt(f'experiment_data/{dataset}/train_{metric}_aug.csv')
-train_auc_indicator = np.loadtxt(f'experiment_data/{dataset}/train_{metric}_indicator.csv')
-train_auc_no_missing = np.loadtxt(f'experiment_data/{dataset}/train_{metric}_no_missing.csv')
-test_auc_aug = np.loadtxt(f'experiment_data/{dataset}/test_{metric}_aug.csv')
-test_auc_indicator = np.loadtxt(f'experiment_data/{dataset}/test_{metric}_indicator.csv')
-test_auc_no_missing = np.loadtxt(f'experiment_data/{dataset}/test_{metric}_no_missing.csv')
-imputation_ensemble_train_auc = np.loadtxt(f'experiment_data/{dataset}/{s_size_folder}imputation_ensemble_train_{metric}.csv')
-imputation_ensemble_test_auc = np.loadtxt(f'experiment_data/{dataset}/{s_size_folder}imputation_ensemble_test_{metric}.csv')
-nllambda = np.loadtxt(f'experiment_data/{dataset}/nllambda.csv')
+res_dir = f'experiment_data/{dataset}'
+if train_miss != 0 or test_miss != 0: 
+    res_dir = f'{res_dir}/train_{train_miss}/test_{test_miss}'
 
-sparsity_aug = np.loadtxt(f'experiment_data/{dataset}/sparsity_aug.csv')
-sparsity_indicator = np.loadtxt(f'experiment_data/{dataset}/sparsity_indicator.csv')
-sparsity_no_missing = np.loadtxt(f'experiment_data/{dataset}/sparsity_no_missing.csv')
+train_auc_aug = np.loadtxt(f'{res_dir}/train_{metric}_aug.csv')
+train_auc_indicator = np.loadtxt(f'{res_dir}/train_{metric}_indicator.csv')
+train_auc_no_missing = np.loadtxt(f'{res_dir}/train_{metric}_no_missing.csv')
+test_auc_aug = np.loadtxt(f'{res_dir}/test_{metric}_aug.csv')
+test_auc_indicator = np.loadtxt(f'{res_dir}/test_{metric}_indicator.csv')
+test_auc_no_missing = np.loadtxt(f'{res_dir}/test_{metric}_no_missing.csv')
+imputation_ensemble_train_auc = np.loadtxt(f'{res_dir}/{s_size_folder}imputation_ensemble_train_{metric}.csv')
+imputation_ensemble_test_auc = np.loadtxt(f'{res_dir}/{s_size_folder}imputation_ensemble_test_{metric}.csv')
+nllambda = np.loadtxt(f'{res_dir}/nllambda.csv')
+
+sparsity_aug = np.loadtxt(f'{res_dir}/sparsity_aug.csv')
+sparsity_indicator = np.loadtxt(f'{res_dir}/sparsity_indicator.csv')
+sparsity_no_missing = np.loadtxt(f'{res_dir}/sparsity_no_missing.csv')
 
 no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
 sparsity_aug = sparsity_aug[:, no_timeouts_aug]
@@ -75,6 +88,8 @@ train_auc_no_missing = train_auc_no_missing[:, no_timeouts_no_missing]
 test_auc_no_missing = test_auc_no_missing[:, no_timeouts_no_missing]
 
 fig_dir = f'./figs/{dataset}/'
+if train_miss != 0 or test_miss != 0: 
+    fig_dir = f'{fig_dir}/train_{train_miss}/test_{test_miss}/'
 if not os.path.exists(fig_dir):
     os.makedirs(fig_dir)
 
@@ -89,8 +104,9 @@ uncertainty_bands(sparsity_indicator, train_auc_indicator, 'Missingness indicato
 plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Train {METRIC_NAME[metric]}')
 plt.legend()
+plt.xlim(0,62.5)
 # plt.ylim(0.7, 0.86)
-plt.savefig(f'./figs/{dataset}/mice_slurm_train_{metric}.png')
+plt.savefig(f'{fig_dir}mice_slurm_train_{metric}.png')
 
 plt.clf()
 
@@ -105,7 +121,8 @@ uncertainty_bands(sparsity_indicator, test_auc_indicator, 'Missingness indicator
 plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Test {METRIC_NAME[metric]}')
 plt.legend()
+plt.xlim(0,62.5)
 # plt.ylim(0.7, 0.86)
-plt.savefig(f'./figs/{dataset}/mice_slurm_test_{metric}.png')
+plt.savefig(f'{fig_dir}mice_slurm_test_{metric}.png')
 
 print('successfully finished execution')

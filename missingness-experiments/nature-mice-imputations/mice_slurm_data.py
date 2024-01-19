@@ -2,7 +2,7 @@
 #SBATCH --job-name=missing_data # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=breca_mar_auc_%j.out
+#SBATCH --output=synthetic_mar_general_acc_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -27,15 +27,19 @@ lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
 holdouts = np.arange(3)#[0, 1, 2]
 validations = np.arange(5)#
-imputations = [0, 2, 3, 4, 5, 6, 7, 8, 9]
+imputations = np.arange(10)
 
-dataset = 'BREAST_CANCER_MAR'
+dataset = 'FICO'# add SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE
 train_miss = 0
-test_miss = 0
+test_miss = train_miss
 
-metric = 'auc'
+metric = 'acc'
 mice_validation_metric = 'acc'
 s_size=150
+
+miss_str = ''
+if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
+    miss_str = f'_train_missing_{train_miss}_test_missing_{test_miss}'
 
 def calc_auc(y, score): 
     fpr, tpr, _ = metrics.roc_curve(y, score)
@@ -49,16 +53,27 @@ METRIC_FN = {
 }
 
 def path_to_imputed(dataset, holdout_set, val_set, imputation):
-    if train_miss != 0 or test_miss != 0:
+    if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
         return  f'../../handling_missing_data/IMPUTED_DATA/{dataset}/MICE/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
     return f'../../handling_missing_data/IMPUTED_DATA/{dataset}/MICE/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
 
 def prefix_pre_imputed(dataset):
+    standard_prefix = '../../handling_missing_data/DATA'
+    if 'SYNTHETIC' in dataset:
+        standard_prefix = f'{standard_prefix}/SYNTHETIC_MAR' if 'MAR' in dataset else f'{standard_prefix}/SYNTHETIC'
+        if 'CATEGORICAL' in dataset: 
+            overall_dataset = 'SYNTHETIC_CATEGORICAL'
+        else: 
+            overall_dataset = 'SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE' 
+        if bool(re.search(r'\d', dataset)): # if dataset contains a number, use our system for MAR missing datasets
+            missing_prop = int(dataset[dataset.rfind('_')+1:])/100
+            return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
+        return f'{standard_prefix}/{overall_dataset}/'
     if bool(re.search(r'\d', dataset)): # if dataset contains a number, use our system for MAR missing datasets
         missing_prop = int(dataset[dataset.rfind('_')+1:])/100
         overall_dataset = dataset[:dataset.rfind('_')]
-        return  f'../../handling_missing_data/DATA/{overall_dataset}/{missing_prop}/'
-    return f'../../handling_missing_data/DATA/{dataset}/'
+        return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
+    return f'{standard_prefix}/{dataset}/'
 
 #############################################
 ### measures across trials, for plotting: ###
@@ -84,9 +99,9 @@ sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
     for val_set in validations: 
-        train = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_train_{val_set}.csv')
-        val = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_val_{val_set}.csv')
-        test = pd.read_csv(prefix_pre_imputed(dataset) + f'holdout_{holdout_set}.csv')
+        train = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_train_{val_set}{miss_str}.csv')
+        val = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_val_{val_set}{miss_str}.csv')
+        test = pd.read_csv(prefix_pre_imputed(dataset) + f'holdout_{holdout_set}{miss_str}.csv')
         label = train.columns[-1]
         predictors = train.columns[:-1]
 
@@ -187,10 +202,12 @@ for holdout_set in holdouts:
 #save data to csv: 
 
 results_path = f'experiment_data/{dataset}'
+if train_miss != 0 or test_miss != 0: 
+    results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
 if not os.path.exists(results_path):
     os.makedirs(results_path)
 
-MICE_results_path = f'experiment_data/{dataset}/{s_size}'
+MICE_results_path = f'{results_path}/{s_size}'
 if not os.path.exists(MICE_results_path):
     os.makedirs(MICE_results_path)
 
