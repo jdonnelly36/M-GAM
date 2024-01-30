@@ -23,11 +23,11 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'BREAST_CANCER_MAR_25'
+dataset = 'BREAST_CANCER'
 train_miss = 0
 test_miss = train_miss
 
-metric = 'loss'
+metric = 'auc'
 
 print(f'{num_quantiles}')
 
@@ -36,7 +36,7 @@ lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 holdouts = np.arange(10)
 validations = np.arange(5)
 imputations = np.arange(10)
-mice_validation_metric = 'acc'
+mice_validation_metric = metric
 s_size=100
 ###################
 

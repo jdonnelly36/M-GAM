@@ -22,19 +22,19 @@ import matplotlib.pyplot as plt
 from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, binarize_and_augment_distinct, errors
 
 #hyperparameters (TODO: set up with argparse)
-num_quantiles = 8
+num_quantiles = 32
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
 holdouts = np.arange(10)#[0, 1, 2]
 validations = np.arange(5)#
 imputations = np.arange(10)
 
-dataset = 'BREAST_CANCER_MAR_50'# add SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE
+dataset = 'FICO'
 train_miss = 0
 test_miss = train_miss
 
-metric = 'auc'
-mice_validation_metric = 'auc'
+metric = 'acc'
+mice_validation_metric = metric
 s_size=100
 
 distinct_missingness = True

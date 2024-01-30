@@ -29,13 +29,13 @@ holdouts = np.arange(10)#[0, 1, 2]
 validations = np.arange(5)#[0, 1, 2, 3, 4]
 imputations = 10
 
-dataset = 'FICO'
+dataset = 'BREAST_CANCER'
 
-metric = 'acc'
-mice_validation_metric = 'acc'
+metric = 'auc'
+mice_validation_metric =  metric
 s_size=100
 
-ablation = 'MICE'
+ablation = 'mean'
 
 distinct = ('FICO' in dataset) or ('BREAST_CANCER_MAR' in dataset)
 distinct_str = 'distinct-missingness/' if distinct else ''
