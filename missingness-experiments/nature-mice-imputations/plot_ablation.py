@@ -38,9 +38,9 @@ MISS_HANDLING_NAME = {
 }
 
 
-ablations = ['', 'median/', 'MICE/', 'mean/']
+ablations = ['distinct/', 'median/', 'MICE/', 'mean/']
 ABLATION_NAME = {
-    '': 'No Imputation', # (missingness imputed as false for all thresholds)
+    'distinct/': 'No Imputation', # (missingness imputed as false for all thresholds)
     'median/': 'Median Imputation', 
     'MICE/': 'MICE',
     'mean/': 'Mean Imputation'

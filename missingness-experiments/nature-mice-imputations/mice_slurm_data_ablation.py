@@ -17,24 +17,28 @@ import numpy as np
 import pandas as pd
 from sklearn import metrics
 import fastsparsegams
+import re
 import matplotlib.pyplot as plt
-from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors, binarize_and_augment_median, binarize_and_augment_mean, binarize_and_augment_imputation
+from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors, binarize_and_augment_median, binarize_and_augment_mean, binarize_and_augment_imputation, binarize_and_augment_distinct_mean, binarize_and_augment_distinct_median, binarize_and_augment_distinct_imputation
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
-holdouts = np.arange(5)#[0, 1, 2]
-validations = np.arange(10)#[0, 1, 2, 3, 4]
+holdouts = np.arange(10)#[0, 1, 2]
+validations = np.arange(5)#[0, 1, 2, 3, 4]
 imputations = 10
 
 dataset = 'FICO'
 
 metric = 'acc'
 mice_validation_metric = 'acc'
-s_size=150
+s_size=100
 
-ablation = 'mean'
+ablation = 'MICE'
+
+distinct = ('FICO' in dataset) or ('BREAST_CANCER_MAR' in dataset)
+distinct_str = 'distinct-missingness/' if distinct else ''
 
 def calc_auc(y, score): 
     fpr, tpr, _ = metrics.roc_curve(y, score)
@@ -46,6 +50,17 @@ METRIC_FN = {
     'auc': calc_auc, 
     'loss': lambda y, probs: np.exp(np.log(probs/(1 - probs))*-1/2*y).mean()
 }
+
+def path_to_imputed(dataset, holdout_set, val_set, imputation):
+    return f'../../handling_missing_data/IMPUTED_DATA/{dataset}/MICE/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+
+def prefix_pre_imputed(dataset):
+    standard_prefix = '../../handling_missing_data/DATA'
+    if bool(re.search(r'\d', dataset)): # if dataset contains a number, use our system for MAR missing datasets
+        missing_prop = int(dataset[dataset.rfind('_')+1:])/100
+        overall_dataset = dataset[:dataset.rfind('_')]
+        return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
+    return f'{standard_prefix}/{dataset}/'
 
 #############################################
 ### measures across trials, for plotting: ###
@@ -71,9 +86,9 @@ sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
     for val_set in validations: 
-        train = pd.read_csv(f'{dataset}/devel_{holdout_set}_train_{val_set}.csv')
-        val = pd.read_csv(f'{dataset}/devel_{holdout_set}_val_{val_set}.csv')
-        test = pd.read_csv(f'{dataset}/holdout_{holdout_set}.csv')
+        train = pd.read_csv(prefix_pre_imputed(dataset) + f'devel_{holdout_set}_train_{val_set}.csv')
+        val = pd.read_csv(prefix_pre_imputed(dataset) + f'devel_{holdout_set}_val_{val_set}.csv')
+        test = pd.read_csv(prefix_pre_imputed(dataset) + f'holdout_{holdout_set}.csv')
         label = train.columns[-1]
         predictors = train.columns[:-1]
 
@@ -83,18 +98,26 @@ for holdout_set in holdouts:
         if ablation == 'median' or ablation == 'mean':
             if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
                 continue
+            train_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}devel_{holdout_set}_train_{val_set}.csv')
+            val_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}devel_{holdout_set}_val_{val_set}.csv')
+            test_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}holdout_{holdout_set}.csv')
 
             if ablation == 'median': 
-                (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
-                y_train_no, y_train_ind, y_train_aug, 
-                y_test_no, y_test_ind, y_test_aug) = binarize_and_augment_median(
-                    pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
-                    )
+                if distinct: 
+                    bin_aug_fn = binarize_and_augment_distinct_median
+                else: 
+                    bin_aug_fn = binarize_and_augment_median
+                
             else:
-                (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
+                if distinct: 
+                    bin_aug_fn = binarize_and_augment_distinct_mean
+                else: 
+                    bin_aug_fn = binarize_and_augment_mean
+
+            (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
                 y_train_no, y_train_ind, y_train_aug, 
-                y_test_no, y_test_ind, y_test_aug) = binarize_and_augment_mean(
-                    pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
+                y_test_no, y_test_ind, y_test_aug) = bin_aug_fn(
+                    pd.concat([train_d, val_d]), test_d, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
                     )
 
             model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
@@ -122,6 +145,10 @@ for holdout_set in holdouts:
         ### Imputation approach ###
         ###########################
         if 'MICE' in ablation: 
+            if 'BREAST_CANCER' in dataset and val_set == 3 and holdout_set == 6: #missed run at this stage; will have to adjust for plotting as well
+                continue
+            if 'BREAST_CANCER_MAR_25' in dataset and val_set == 2 and holdout_set == 9: #missed run at this stage; will have to adjust for plotting as well
+                continue
             #variables for performance of indicator methods, across each_holdout, for each lambda
             train_prob_aug_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
             train_prob_indicator_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
@@ -135,6 +162,15 @@ for holdout_set in holdouts:
             sparsity_indicator_i = np.zeros((imputations, len(lambda_grid[0])))
             sparsity_no_missing_i = np.zeros((imputations, len(lambda_grid[0])))
 
+            train_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}devel_{holdout_set}_train_{val_set}.csv')
+            val_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}devel_{holdout_set}_val_{val_set}.csv')
+            test_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}holdout_{holdout_set}.csv')
+
+            if distinct: 
+                bin_aug_fn = binarize_and_augment_distinct_imputation
+            else: 
+                bin_aug_fn = binarize_and_augment_imputation
+
             #find best lambda for each imputation, using validation set. 
                 #currently, selects best auc using only one validation fold. 
                 # one possible TODO is to select using 5-fold cross validation
@@ -142,13 +178,13 @@ for holdout_set in holdouts:
                 # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
             for imputation in range(imputations):
                 imputed_train, imputed_val, imputed_test = return_imputation(
-                    f'{dataset}/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/', 
+                    path_to_imputed(dataset, holdout_set, val_set, imputation),
                     label, predictors, train, test, val)
                     
                 (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
                 y_train_no, y_train_ind, y_train_aug, 
-                y_test_no, y_test_ind, y_test_aug) = binarize_and_augment_imputation(
-                    pd.concat([train, val]), test, pd.concat([imputed_train, imputed_val]), 
+                y_test_no, y_test_ind, y_test_aug) = bin_aug_fn(
+                    pd.concat([train_d, val_d]), test_d, pd.concat([imputed_train, imputed_val]), 
                     imputed_test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
                     )
 

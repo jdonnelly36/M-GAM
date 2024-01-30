@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=breca # Job name
+#SBATCH --job-name=distinct # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=breca_%j.out
+#SBATCH --output=distinct_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -19,36 +19,33 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors
+from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, binarize_and_augment_distinct, errors
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'BREAST_CANCER_MAR_25'
+lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
+
+holdouts = np.arange(10)#[0, 1, 2]
+validations = np.arange(5)#
+imputations = np.arange(10)
+
+dataset = 'BREAST_CANCER_MAR_50'# add SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE
 train_miss = 0
 test_miss = train_miss
 
-metric = 'loss'
-
-print(f'{num_quantiles}')
-
-### Immutable ###
-lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
-holdouts = np.arange(10)
-validations = np.arange(5)
-imputations = np.arange(10)
-mice_validation_metric = 'acc'
+metric = 'auc'
+mice_validation_metric = 'auc'
 s_size=100
-###################
 
-### basic hyperparameter processing ###
-
-miss_str = ''
-if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
-    miss_str = f'_train_missing_{train_miss}_test_missing_{test_miss}'
+distinct_missingness = True
 
 q_str = ''
 if num_quantiles != 8:
     q_str = f'/q{num_quantiles}'
+
+miss_str = ''
+if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
+    miss_str = f'_train_missing_{train_miss}_test_missing_{test_miss}'
 
 def calc_auc(y, score): 
     fpr, tpr, _ = metrics.roc_curve(y, score)
@@ -84,8 +81,6 @@ def prefix_pre_imputed(dataset):
         return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
     return f'{standard_prefix}/{dataset}/'
 
-###############################################
-
 #############################################
 ### measures across trials, for plotting: ###
 #############################################
@@ -109,6 +104,7 @@ sparsity_indicator = np.zeros((len(holdouts), len(lambda_grid[0])))
 sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
+    print(holdout_set)
     for val_set in validations: 
         train = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_train_{val_set}{miss_str}.csv')
         val = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_val_{val_set}{miss_str}.csv')
@@ -153,14 +149,14 @@ for holdout_set in holdouts:
                 ensembled_val_aucs[i] = METRIC_FN[mice_validation_metric](y_val, val_probs[i])
             best_lambda = np.argmax(ensembled_val_aucs) #not optimal runtime, but should not be an issue
             best_lambdas[imputation_idx] = best_lambda
-
+            
             #now that we know the best lambda for each imputation, we can go through 
             # and find the probabilities for each imputation, while training on the full train set, 
             # using these validation-optimal lambdas.
             X_train, X_test, y_train, y_test = get_train_test_binarized(
                 label, predictors, train, test, val, num_quantiles, 
                 path_to_imputed(dataset, holdout_set, val_set, imputation))
-
+            
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
                                        lambda_grid=lambda_grid, 
                                        num_lambda=None, num_gamma=None, max_support_size=s_size)#inefficient to search whole grid(TODO)
@@ -186,37 +182,51 @@ for holdout_set in holdouts:
         if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
             continue
 
-        (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
-        y_train_no, y_train_ind, y_train_aug, 
-        y_test_no, y_test_ind, y_test_aug) = binarize_and_augment(
-            pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
-            )
+        if distinct_missingness: 
+            train_d = pd.read_csv(prefix_pre_imputed(dataset)+f'distinct-missingness/devel_{holdout_set}_train_{val_set}{miss_str}.csv')
+            val_d = pd.read_csv(prefix_pre_imputed(dataset)+f'distinct-missingness/devel_{holdout_set}_val_{val_set}{miss_str}.csv')
+            test_d = pd.read_csv(prefix_pre_imputed(dataset) + f'distinct-missingness/holdout_{holdout_set}{miss_str}.csv')
+            (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
+            y_train_no, y_train_ind, y_train_aug, 
+            y_test_no, y_test_ind, y_test_aug) = binarize_and_augment_distinct(
+                pd.concat([train_d, val_d]), test_d, np.linspace(0, 1, num_quantiles + 2)[1:-1], label, 
+                miss_vals=[-7, -8, -9, -10] if not ('BREAST_CANCER' in dataset) else [-7, -8]
+                )
+            
+        else: 
+            (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
+            y_train_no, y_train_ind, y_train_aug, 
+            y_test_no, y_test_ind, y_test_aug) = binarize_and_augment(
+                pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
+                )
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_no_missing[holdout_set], 
-         _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = eval_model(
+        _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = eval_model(
             model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric]
             )
         
         model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_indicator[holdout_set], 
-         _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = eval_model(
+        _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = eval_model(
             model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric]
             )
         
         model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
                                     lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_aug[holdout_set], 
-         _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = eval_model(
+        _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = eval_model(
             model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0], 
             METRIC_FN[metric]
-            )
+                )
 
 #save data to csv: 
+        
+print('saving\n')
 
-results_path = f'experiment_data/{dataset}{q_str}'
+results_path = f'experiment_data/{dataset}{q_str}' if not distinct_missingness else f'experiment_data/{dataset}/distinct{q_str}'
 if train_miss != 0 or test_miss != 0: 
     results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
 if not os.path.exists(results_path):
