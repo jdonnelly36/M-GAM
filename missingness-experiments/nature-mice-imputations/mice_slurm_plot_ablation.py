@@ -20,6 +20,8 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands
 
+# plt.style.use('seaborn-v0_8')
+
 dataset = 'FICO'
 metric = 'acc'
 

@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=missing_data # Job name
+#SBATCH --job-name=nomi_new_ablation # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=missing_data_%j.out
+#SBATCH --output=nomi_new_ablation_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -25,17 +25,24 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 num_quantiles = 8
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
-holdouts = np.arange(10)#[0, 1, 2]
-validations = np.arange(5)#[0, 1, 2, 3, 4]
-imputations = 10
+#2 1  2 2  2 4  9 3
+job = int(os.environ['SLURM_ARRAY_TASK_ID'])
 
-dataset = 'BREAST_CANCER'
+holdouts = [job // 5]#np.arange(10)#[0, 1, 2]
+validations = [job % 5]#np.arange(5)#[0, 1, 2, 3, 4]
+imputations = np.arange(10)
 
-metric = 'auc'
+dataset = 'FICO'
+
+metric = 'acc'
 mice_validation_metric =  metric
 s_size=100
 
-ablation = 'mean'
+ablation = f'MICE_{holdouts[0]}_{validations[0]}'
+
+level_aug = 0#0 for no missing, 1 for ind, 2 for aug
+
+print(level_aug, holdouts, validations, dataset, metric, ablation, job)
 
 distinct = ('FICO' in dataset) or ('BREAST_CANCER_MAR' in dataset)
 distinct_str = 'distinct-missingness/' if distinct else ''
@@ -84,8 +91,8 @@ sparsity_aug = np.zeros((len(holdouts), len(lambda_grid[0])))
 sparsity_indicator = np.zeros((len(holdouts), len(lambda_grid[0])))
 sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
-for holdout_set in holdouts: 
-    for val_set in validations: 
+for holdout_idx, holdout_set in enumerate(holdouts): 
+    for val_idx, val_set in enumerate(validations): 
         train = pd.read_csv(prefix_pre_imputed(dataset) + f'devel_{holdout_set}_train_{val_set}.csv')
         val = pd.read_csv(prefix_pre_imputed(dataset) + f'devel_{holdout_set}_val_{val_set}.csv')
         test = pd.read_csv(prefix_pre_imputed(dataset) + f'holdout_{holdout_set}.csv')
@@ -150,17 +157,17 @@ for holdout_set in holdouts:
             if 'BREAST_CANCER_MAR_25' in dataset and val_set == 2 and holdout_set == 9: #missed run at this stage; will have to adjust for plotting as well
                 continue
             #variables for performance of indicator methods, across each_holdout, for each lambda
-            train_prob_aug_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
-            train_prob_indicator_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
-            train_prob_no_missing_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
-            test_prob_aug_i = np.zeros((imputations, len(lambda_grid[0]), test.shape[0]))
-            test_prob_indicator_i = np.zeros((imputations, len(lambda_grid[0]), test.shape[0]))
-            test_prob_no_missing_i = np.zeros((imputations, len(lambda_grid[0]), test.shape[0]))
+            # train_prob_aug_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
+            # train_prob_indicator_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
+            # train_prob_no_missing_i = np.zeros((imputations, len(lambda_grid[0]), train.shape[0] + val.shape[0]))
+            # test_prob_aug_i = np.zeros((imputations, len(lambda_grid[0]), test.shape[0]))
+            # test_prob_indicator_i = np.zeros((imputations, len(lambda_grid[0]), test.shape[0]))
+            # test_prob_no_missing_i = np.zeros((imputations, len(lambda_grid[0]), test.shape[0]))
 
-            #sparsity for each lambda, holdout, and method
-            sparsity_aug_i = np.zeros((imputations, len(lambda_grid[0])))
-            sparsity_indicator_i = np.zeros((imputations, len(lambda_grid[0])))
-            sparsity_no_missing_i = np.zeros((imputations, len(lambda_grid[0])))
+            # #sparsity for each lambda, holdout, and method
+            # sparsity_aug_i = np.zeros((imputations, len(lambda_grid[0])))
+            # sparsity_indicator_i = np.zeros((imputations, len(lambda_grid[0])))
+            # sparsity_no_missing_i = np.zeros((imputations, len(lambda_grid[0])))
 
             train_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}devel_{holdout_set}_train_{val_set}.csv')
             val_d = pd.read_csv(prefix_pre_imputed(dataset) + f'{distinct_str}devel_{holdout_set}_val_{val_set}.csv')
@@ -171,84 +178,108 @@ for holdout_set in holdouts:
             else: 
                 bin_aug_fn = binarize_and_augment_imputation
 
+            imputation_train_probs = np.zeros((len(imputations), train.shape[0] + val.shape[0]))
+            imputation_test_probs = np.zeros((len(imputations), test.shape[0]))
+            best_lambdas = np.zeros(len(imputations))
+
             #find best lambda for each imputation, using validation set. 
                 #currently, selects best auc using only one validation fold. 
                 # one possible TODO is to select using 5-fold cross validation
                 # (this may require verifying whether all 5 train/val splits use the same imputation)
                 # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
-            for imputation in range(imputations):
+            for imputation_idx, imputation in enumerate(imputations):
                 imputed_train, imputed_val, imputed_test = return_imputation(
                     path_to_imputed(dataset, holdout_set, val_set, imputation),
                     label, predictors, train, test, val)
-                    
+                
+                (train_no, train_ind, train_aug, val_no, val_ind, val_aug, 
+                y_train_no, y_train_ind, y_train_aug, 
+                y_val_no, y_val_ind, y_val_aug) = bin_aug_fn(
+                    train_d, val_d, imputed_train, imputed_val,
+                    np.linspace(0, 1, num_quantiles + 2)[1:-1], label
+                    )
+                
+                (X_train, y_train, X_val, y_val) = ((train_no, y_train_no, val_no, y_val_no) if level_aug == 0 
+                                                    else (train_ind, y_train_ind, val_ind, y_val_ind) if level_aug == 1 
+                                                    else (train_aug, y_train_aug, val_aug, y_val_aug))
+
+
+                model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
+                                       lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, 
+                                       max_support_size=s_size)
+            
+                (_, _, val_probs, _, _) = eval_model(
+                    model, X_train, X_val, y_train, y_val, lambda_grid[0],
+                    METRIC_FN[metric]
+                    )
+                ensembled_val_aucs = np.zeros(len(lambda_grid[0]))
+                
+                for i in range(len(lambda_grid[0])):
+                    ensembled_val_aucs[i] = METRIC_FN[mice_validation_metric](y_val, val_probs[i])
+                best_lambda = np.argmax(ensembled_val_aucs) #not optimal runtime, but should not be an issue
+                best_lambdas[imputation_idx] = best_lambda
+
+                #now that we know the best lambda for each imputation, we can go through 
+                # and find the probabilities for each imputation, while training on the full train set, 
+                # using these validation-optimal lambdas.
+                
                 (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
                 y_train_no, y_train_ind, y_train_aug, 
                 y_test_no, y_test_ind, y_test_aug) = bin_aug_fn(
                     pd.concat([train_d, val_d]), test_d, pd.concat([imputed_train, imputed_val]), 
                     imputed_test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
                     )
+                
+                (X_train, y_train, X_test, y_test) = ((train_no, y_train_no, test_no, y_test_no) if level_aug == 0 
+                                                    else (train_ind, y_train_ind, test_ind, y_test_ind) if level_aug == 1 
+                                                    else (train_aug, y_train_aug, test_aug, y_test_aug))
 
-                model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
-                                            num_lambda=None, num_gamma=None, max_support_size=s_size)
-                (train_prob_no_missing_i[imputation], _, 
-                test_prob_no_missing_i[imputation], _, sparsity_no_missing_i[imputation]) = eval_model(
-                    model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric]
-                    )
+                model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
+                                            lambda_grid=lambda_grid, 
+                                            num_lambda=None, num_gamma=None, max_support_size=s_size)#inefficient to search whole grid(TODO)
                 
-                model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
-                                            num_lambda=None, num_gamma=None, max_support_size=s_size)
-                (train_prob_indicator_i[imputation], _,
-                test_prob_indicator_i[imputation], _, sparsity_indicator_i[imputation]) = eval_model(
-                    model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric]
-                    )
-                
-                model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
-                                            lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=s_size)
-                (train_prob_aug_i[imputation], _, 
-                test_prob_aug_i[imputation], _, sparsity_aug_i[imputation]) = eval_model(
-                    model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0], 
+                (train_probs, _, test_probs, _, _) = eval_model(
+                    model, X_train, X_test, y_train, y_test, lambda_grid[0], 
                     METRIC_FN[metric]
                     )
-                ############
-                ###just going to do an average, not a cross validation lambda threshold selecting for each lambda in mice average. 
-                ### TODO: check benefit from adding this in (allowing averaging across one model per imputation, with a different lambda for each imputation)
-                ############
+                imputation_train_probs[imputation_idx] = train_probs[best_lambda]
+                imputation_test_probs[imputation_idx] = test_probs[best_lambda]
 
             # calculate ensembled metric across all imputations: 
-            ensembled_train_probs_no_missing = train_prob_no_missing_i.mean(axis=0)
-            ensembled_test_probs_no_missing = test_prob_no_missing_i.mean(axis=0)
-            for idx, lammy in enumerate(lambda_grid[0]):
-                train_auc_no_missing[holdout_set, idx] = METRIC_FN[metric](y_train_no, ensembled_train_probs_no_missing[idx]) if (sparsity_no_missing_i[:, idx] > 0).all() else 0
-                test_auc_no_missing[holdout_set, idx] = METRIC_FN[metric](y_test_no, ensembled_test_probs_no_missing[idx])
-            sparsity_no_missing[holdout_set] = sparsity_no_missing_i.sum(axis=0) #rough approximation of sparsity
-            
-            ensembled_train_probs_indicator = train_prob_indicator_i.mean(axis=0)
-            ensembled_test_probs_indicator = test_prob_indicator_i.mean(axis=0)
-            for idx, lammy in enumerate(lambda_grid[0]):
-                train_auc_indicator[holdout_set, idx] = METRIC_FN[metric](y_train_ind, ensembled_train_probs_indicator[idx]) if (sparsity_indicator_i[:, idx] > 0).all() else 0
-                test_auc_indicator[holdout_set, idx] = METRIC_FN[metric](y_test_ind, ensembled_test_probs_indicator[idx])
-            sparsity_indicator[holdout_set] = sparsity_indicator_i.sum(axis=0)
+            ensembled_train_probs = imputation_train_probs.mean(axis=0)
+            ensembled_test_probs = imputation_test_probs.mean(axis=0)
 
-            ensembled_train_probs_aug = train_prob_aug_i.mean(axis=0)
-            ensembled_test_probs_aug = test_prob_aug_i.mean(axis=0)
-            for idx, lammy in enumerate(lambda_grid[0]):
-                train_auc_aug[holdout_set, idx] = METRIC_FN[metric](y_train_aug, ensembled_train_probs_aug[idx]) if (sparsity_aug_i[:, idx] > 0).all() else 0
-                test_auc_aug[holdout_set, idx] = METRIC_FN[metric](y_test_aug, ensembled_test_probs_aug[idx])
-            sparsity_aug[holdout_set] = sparsity_aug_i.sum(axis=0)
+            imputation_ensemble_train_auc[val_idx, holdout_idx] = METRIC_FN[metric](y_train, ensembled_train_probs)
+
+            imputation_ensemble_test_auc[val_idx, holdout_idx] = METRIC_FN[metric](y_test, ensembled_test_probs)
             
 #save data to csv: 
+print('saving')
+results_path = f'experiment_data/ablation/{dataset}/{ablation}'
+if not os.path.exists(results_path):
+    os.makedirs(results_path)
 
-np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_aug.csv', train_auc_aug)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_indicator.csv', train_auc_indicator)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_no_missing.csv', train_auc_no_missing)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_aug.csv', test_auc_aug)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_indicator.csv', test_auc_indicator)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_no_missing.csv', test_auc_no_missing)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/nllambda.csv', -np.log(lambda_grid[0]))
+if level_aug == 0: 
+    np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_no_missing.csv', imputation_ensemble_train_auc)
+    np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_no_missing.csv', imputation_ensemble_test_auc)
+elif level_aug == 1: 
+    np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_indicator.csv', imputation_ensemble_train_auc)
+    np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_indicator.csv', imputation_ensemble_test_auc)
+elif level_aug == 2: 
+    np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_aug.csv', imputation_ensemble_train_auc)
+    np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_aug.csv', imputation_ensemble_test_auc)
 
-np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_aug.csv', sparsity_aug)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_indicator.csv', sparsity_indicator)
-np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_no_missing.csv',sparsity_no_missing)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_aug.csv', train_auc_aug)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_indicator.csv', train_auc_indicator)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_no_missing.csv', train_auc_no_missing)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_aug.csv', test_auc_aug)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_indicator.csv', test_auc_indicator)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_no_missing.csv', test_auc_no_missing)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/nllambda.csv', -np.log(lambda_grid[0]))
+
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_aug.csv', sparsity_aug)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_indicator.csv', sparsity_indicator)
+# np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_no_missing.csv',sparsity_no_missing)
 
 
 #can also try pickle file of all hyperparameters, and save to a folder with corresponding hash

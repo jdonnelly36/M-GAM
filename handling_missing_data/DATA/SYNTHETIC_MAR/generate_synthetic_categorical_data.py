@@ -123,7 +123,6 @@ for added_missingness_rate in [0.25, 0.5]:
 
 
     added_missingness_num_cols = 1
-    added_missingness_rate = 0.2
 
     np.random.seed(0)
     target_cols = np.array([0])
@@ -566,7 +565,7 @@ for added_missingness_rate in [0.25, 0.5]:
     # In[33]:
 
 
-    n_splits = 3
+    n_splits = 10
     n_folds = 5
     idx = np.arange(len(data_df))
 

@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot
 
 dataset = 'BREAST_CANCER'
-metric = 'loss'
+metric = 'auc'
 filetype = 'pdf'
 
 DATASET_NAME = {
@@ -157,8 +157,8 @@ def plot_with_break(is_train = True):
 
         ax.set_xlim(0, s_size_cutoff)
         ax2.set_xlim(200, 201)
-        ax.set_ylim(0.5, 2.2)
-        ax2.set_ylim(0.5, 2.2)
+        # ax.set_ylim(0.5, 2.2)
+        # ax2.set_ylim(0.5, 2.2)
 
         # hide the spines between ax and ax2
         ax.spines['right'].set_visible(False)
@@ -206,7 +206,7 @@ plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Train {METRIC_NAME[metric]}')
 plt.legend()
 plt.xlim(0,s_size_cutoff)
-plt.ylim(0.7, 0.86)
+# plt.ylim(0.7, 0.86)
 plt.savefig(f'{fig_dir}mice_slurm_train_{metric}.{filetype}')
 
 plt.clf()
@@ -224,7 +224,7 @@ plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Test {METRIC_NAME[metric]}')
 plt.legend()
 plt.xlim(0,62.5)
-plt.ylim(0.9, 2.2)
+# plt.ylim(0.9, 2.2)
 plt.savefig(f'{fig_dir}mice_slurm_test_{metric}.{filetype}')
 
 print('successfully finished execution')

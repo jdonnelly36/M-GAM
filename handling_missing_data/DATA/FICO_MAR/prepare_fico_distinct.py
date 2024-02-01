@@ -60,8 +60,8 @@ for added_missingness_rate in [0.25, 0.5]:
     # In[5]:
 
 
-    missing_val = [-7, -8, -9, -10]
-    data = data.replace(missing_val, np.nan)
+    # missing_val = [-7, -8, -9, -10]
+    # data = data.replace(missing_val, np.nan)
 
 
     # In[6]:
@@ -91,7 +91,7 @@ for added_missingness_rate in [0.25, 0.5]:
     outdir = Path('.')
     outdir.mkdir(exist_ok=True)
 
-    missing_folder = f'{added_missingness_rate}'
+    missing_folder = f'{added_missingness_rate}/distinct-missingness'
     if not os.path.exists(outdir/ missing_folder):
         os.makedirs(outdir/ missing_folder)
 

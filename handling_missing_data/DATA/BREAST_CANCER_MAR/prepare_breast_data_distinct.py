@@ -51,7 +51,8 @@ for added_missingness_rate in [0.25, 0.5]:
 
 
     missing_val = ['Not Available', 'unk', 'Unk/ND', 'UNk/ND', 'Unknown']
-    data_no_dupl = data_no_dupl.replace(missing_val, np.nan)
+    data_no_dupl = data_no_dupl.replace(missing_val, -7)
+    data_no_dupl = data_no_dupl.fillna(-7)
 
 
     # In[7]:
@@ -99,7 +100,7 @@ for added_missingness_rate in [0.25, 0.5]:
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
         mask = (targets[:, i] == 1) & ((data_no_dupl['Overall Survival Status'] == '1:DECEASED') == tartget_labels)
-        data_no_dupl.loc[mask, data_no_dupl.columns[col]] = np.nan
+        data_no_dupl.loc[mask, data_no_dupl.columns[col]] = -8
 
 
     # #### Return to loading and processing data
@@ -421,7 +422,7 @@ for added_missingness_rate in [0.25, 0.5]:
 
 
     # In[35]:
-    missing_folder = f'{added_missingness_rate}'
+    missing_folder = f'{added_missingness_rate}/distinct-missingness'
     if not os.path.exists(missing_folder):
         os.makedirs(missing_folder)
 

@@ -20,8 +20,8 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot
 
-dataset = 'BREAST_CANCER_MAR_25'
-metric = 'auc'
+dataset = 'FICO'
+metric = 'acc'
 filetype = 'pdf'
 
 DATASET_NAME = {

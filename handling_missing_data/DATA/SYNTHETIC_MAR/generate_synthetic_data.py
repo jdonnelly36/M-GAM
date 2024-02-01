@@ -115,7 +115,7 @@ for added_missingness_rate in [0.25, 0.5]:
     # In[9]:
 
 
-    n_splits = 3
+    n_splits = 10
     n_folds = 5
     idx = np.arange(len(data_df))
 
