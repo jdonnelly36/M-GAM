@@ -958,3 +958,16 @@ def uncertainty_bands_subplot(x_mat, y_mat, label, ax, facecolor = '#F0F8FF', co
                      ordered_y_lower[increasing_x_indices], 
                      ordered_y_upper[increasing_x_indices],
                      alpha=0.4)
+    
+def uncertainty_bands_subplot_mice(ensemble_data, label, ax, facecolor = '#F0F8FF', color='C0', axis=0): 
+    x = np.array([199, 202])
+    y = np.array([np.nanmean(ensemble_data), np.nanmean(ensemble_data)])
+    # by_val = ensemble_data.reshape([10, 5]).mean(axis=1)
+    by_val = np.nanmean(ensemble_data.reshape([10, 5]), axis=1)
+    yerr = by_val.std()/np.sqrt(10)
+
+    if label is not None: 
+        ax.errorbar(x, y, yerr=yerr, fmt='.', lw=1, label=label)
+    else: 
+        ax.errorbar(x, y, yerr=yerr, fmt='.', lw=1)
+    ax.fill_between(x, y-yerr, y+yerr, alpha = 0.4)

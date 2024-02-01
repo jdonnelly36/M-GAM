@@ -18,7 +18,11 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot
+from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot, uncertainty_bands_subplot_mice
+
+from cycler import cycler
+plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#808080'])
+# plt.rcParams.update({'font.size': 16})
 
 dataset = 'BREAST_CANCER'
 metric = 'auc'
@@ -78,8 +82,9 @@ sparsity_indicator = np.loadtxt(f'{res_dir}/sparsity_indicator.csv')
 sparsity_no_missing = np.loadtxt(f'{res_dir}/sparsity_no_missing.csv')
 
 #filter out any skipped (0 valued) runs of imputation (TODO: verify this has an effect for breca)
-imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
+# imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
 imputation_ensemble_train_auc = imputation_ensemble_train_auc[imputation_ensemble_train_auc > 0]
+imputation_ensemble_test_auc[imputation_ensemble_test_auc == 0] = np.nan
 
 no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
 sparsity_aug = sparsity_aug[:, no_timeouts_aug]
@@ -142,13 +147,14 @@ def plot_with_break(is_train = True):
         # ax.legend()
 
         # ax2.set_title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
-        ax2.hlines(imputation_ensemble_train_auc.mean() if is_train else imputation_ensemble_test_auc.mean(), 0,
+        ax2.hlines(np.nanmean(imputation_ensemble_train_auc) if is_train else np.nanmean(imputation_ensemble_test_auc), 0,
                 1000, linestyles='dashed',
                 label= 'MICE',#'mean performance, ensemble of 10 MICE imputations',
                 color='grey') #TODO: add error bars? 
         # uncertainty_bands_subplot(sparsity_no_missing, train_auc_no_missing, 'No Missingness \n Handling', ax2)
         uncertainty_bands_subplot(sparsity_indicator, train_auc_indicator, 'Indicators', ax2) 
         uncertainty_bands_subplot(sparsity_aug, train_auc_aug, 'Interactions', ax2)
+        uncertainty_bands_subplot_mice(imputation_ensemble_test_auc, None, ax2)
         ax2.set_xlabel('Non-interpretable \n models')
         ax2.set_xticks([]) # need to replace xticks with infinity
 
@@ -212,7 +218,7 @@ plt.savefig(f'{fig_dir}mice_slurm_train_{metric}.{filetype}')
 plt.clf()
 
 plt.title(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {DATASET_NAME[dataset]} Dataset')
-plt.hlines(imputation_ensemble_test_auc.mean(), 0,
+plt.hlines(np.nanmean(imputation_ensemble_test_auc), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
            label='mean performance, ensemble of 10 MICE imputations', 
            color='grey') #TODO: add error bars? 

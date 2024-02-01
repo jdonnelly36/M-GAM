@@ -18,7 +18,11 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot
+from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot, uncertainty_bands_subplot_mice
+
+from cycler import cycler
+plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#808080'])
+# plt.rcParams.update({'font.size': 16})
 
 dataset = 'FICO'
 metric = 'acc'
@@ -52,7 +56,7 @@ s_size_folder = '100/'
 train_miss = 0
 test_miss = train_miss
 s_size_cutoff = 52.5
-num_quantiles = 8
+num_quantiles = 32
 quantile_addition = f' for quantiles = {num_quantiles}' if num_quantiles != 8 else ''# for distinct missingness encodings
 
 #load data files from csv: 
@@ -149,6 +153,7 @@ def plot_with_break(is_train = True):
         # uncertainty_bands_subplot(sparsity_no_missing, train_auc_no_missing, 'No Missingness \n Handling', ax2)
         uncertainty_bands_subplot(sparsity_indicator, train_auc_indicator, 'Indicators', ax2) 
         uncertainty_bands_subplot(sparsity_aug, train_auc_aug, 'Interactions', ax2)
+        uncertainty_bands_subplot_mice(imputation_ensemble_test_auc, None, ax2)
         ax2.set_xlabel('Non-interpretable \n models')
         ax2.set_xticks([]) # need to replace xticks with infinity
 

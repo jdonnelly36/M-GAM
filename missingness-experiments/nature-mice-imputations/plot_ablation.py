@@ -18,18 +18,18 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot
+from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot, uncertainty_bands_subplot_mice
 
 from cycler import cycler
 # plt.style.use('seaborn-v0_8-notebook')
 #['#1b9e77','#7570b3', '#8c564b']
 #'#a6611a',['#018571','#dfc27d', '#80cdc1', '#a6611a']
-plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1b9e77','#7570b3', '#8c564b'] )#['#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
+plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1b9e77','#7570b3', '#808080', '#8c564b'] )#['#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
 plt.rcParams.update({'font.size': 16})
 
-dataset = 'BREAST_CANCER'
+dataset = 'FICO'
 metric = 'auc' if 'BREAST_CANCER' in dataset else 'acc'
-miss_handlings = ['aug', 'indicator', 'no_missing']
+miss_handlings = ['aug', 'indicator']#, 'no_missing']
 ylim = (0.69, 0.77) if metric == 'auc' else (0.7, 0.735)
 
 METRIC_NAME = {
@@ -59,7 +59,10 @@ fig_dir = f'./figs/ablation/{dataset}/'
 if not os.path.exists(fig_dir):
     os.makedirs(fig_dir)
 
-def plot_with_break(ax, ax2, vals, ensemble_perf, dataset, metric, is_train=False, y_label = True, legend = False, y_lim = (0.5, 1.0)): 
+def plot_with_break(ax, ax2, vals, ensemble_perf, ensemble_data, dataset, metric, is_train=False, y_label = True, legend = False, y_lim = (0.5, 1.0)): 
+
+        # ensemble_y = np.concatenate([np.array(ensemble_data)[:, np.newaxis], np.array(ensemble_data)[:, np.newaxis]], axis=1)
+        # ensemble_x = np.concatenate([(199*np.ones(len(ensemble_data)))[:, np.newaxis], (202*np.ones(len(ensemble_data)))[:, np.newaxis]], axis=1)
 
         # plot the same data on both axes
         train_or_test_str = 'Train' if is_train else 'Test'
@@ -75,6 +78,7 @@ def plot_with_break(ax, ax2, vals, ensemble_perf, dataset, metric, is_train=Fals
                 color='grey') #TODO: add error bars? 
         uncertainty_bands_subplot(vals[0][0], vals[0][1], ABLATION_NAME[ablations[0]] if legend else None, ax2) 
         uncertainty_bands_subplot(vals[1][0], vals[1][1], ABLATION_NAME[ablations[1]] if legend else None, ax2)
+        uncertainty_bands_subplot_mice(np.array(ensemble_data), None, ax2)
         ax2.set_xlabel('*')#'Non-interpretable \n models')
         ax2.set_xticks([])
 
@@ -122,26 +126,24 @@ for plot_idx, miss_handling in enumerate(miss_handlings):
     # # placeholder: needs to be custom to the miss handling param
     if dataset == 'BREAST_CANCER': 
         imputation_ensemble_test_auc = np.loadtxt(f'experiment_data/ablation/{dataset}/MICE/imputation_ensemble_test_{metric}_{miss_handling}.csv')
-        imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
-        ensemble_perf = imputation_ensemble_test_auc.mean()
+        # imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
+        # ensemble_perf = imputation_ensemble_test_auc.mean()
+        imputation_ensemble_test_auc[imputation_ensemble_test_auc == 0] = np.nan
+        ensemble_perf = np.nanmean(imputation_ensemble_test_auc)
         print(ensemble_perf)
     else: 
-        imputation_ensemble_test_auc = 0
-        SKIPS = {
-            'FICO': [],
-            'BREAST_CANCER': [(6, 3), (9, 2)]
-        }
+        imputation_ensemble_test_auc = []
         for holdout in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]: 
             for val in [0, 1, 2, 3, 4]: 
-                if (holdout, val) in SKIPS[dataset]: 
-                    continue
-                imputation_ensemble_test_auc += np.loadtxt(f'experiment_data/ablation/{dataset}/MICE_{holdout}_{val}/imputation_ensemble_test_{metric}_{miss_handling}.csv')
-        ensemble_perf = (imputation_ensemble_test_auc/(50 - len(SKIPS[dataset])))
+                imputation_ensemble_test_auc.append( np.loadtxt(f'experiment_data/ablation/{dataset}/MICE_{holdout}_{val}/imputation_ensemble_test_{metric}_{miss_handling}.csv'))
+        ensemble_perf = sum(imputation_ensemble_test_auc)/len(imputation_ensemble_test_auc)
         print(ensemble_perf)
 
     axs = figs[plot_idx].subplots(1, 2, sharey=True, gridspec_kw={'width_ratios': [3, 1]})
     figs[plot_idx].suptitle(f'{MISS_HANDLING_NAME[miss_handling]}')
-    plot_with_break(axs[0], axs[1], vals, ensemble_perf = ensemble_perf, dataset=dataset, metric=metric, legend=(plot_idx==2), y_lim=ylim)
+    plot_with_break(axs[0], axs[1], vals, ensemble_perf = ensemble_perf, 
+                    ensemble_data= imputation_ensemble_test_auc, 
+                    dataset=dataset, metric=metric, legend=(plot_idx==len(miss_handlings)-1), y_lim=ylim)
 fig.suptitle(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset...')
 # fig.legend(loc='lower right')
 fig.legend(loc='lower center', fancybox=True, shadow=True, ncol=5, bbox_to_anchor=(0.5, -0.05))
