@@ -24,8 +24,8 @@ from cycler import cycler
 plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#808080'])
 # plt.rcParams.update({'font.size': 16})
 
-dataset = 'FICO'
-metric = 'acc'
+dataset = 'BREAST_CANCER_MAR_50'
+metric = 'auc'
 filetype = 'pdf'
 
 DATASET_NAME = {
@@ -56,7 +56,7 @@ s_size_folder = '100/'
 train_miss = 0
 test_miss = train_miss
 s_size_cutoff = 52.5
-num_quantiles = 32
+num_quantiles = 8
 quantile_addition = f' for quantiles = {num_quantiles}' if num_quantiles != 8 else ''# for distinct missingness encodings
 
 #load data files from csv: 
@@ -92,8 +92,9 @@ train_auc_indicator = train_auc_indicator[:, no_timeouts_indicator]
 test_auc_indicator = test_auc_indicator[:, no_timeouts_indicator]
 
 #filter out any skipped (0 valued) runs of imputation (TODO: verify this has an effect for breca)
-imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
-imputation_ensemble_train_auc = imputation_ensemble_train_auc[imputation_ensemble_train_auc > 0]
+# imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
+# imputation_ensemble_train_auc = imputation_ensemble_train_auc[imputation_ensemble_train_auc > 0]
+imputation_ensemble_test_auc[imputation_ensemble_test_auc == 0] = np.nan
 
 # no_timeouts_no_missing = (train_auc_no_missing > 0).all(axis=0)
 # sparsity_no_missing = sparsity_no_missing[:, no_timeouts_no_missing]
@@ -146,7 +147,7 @@ def plot_with_break(is_train = True):
         # ax.legend()
 
         # ax2.set_title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
-        ax2.hlines(imputation_ensemble_train_auc.mean() if is_train else imputation_ensemble_test_auc.mean(), 0,
+        ax2.hlines(np.nanmean(imputation_ensemble_train_auc) if is_train else np.nanmean(imputation_ensemble_test_auc), 0,
                 1000, linestyles='dashed',
                 label= 'MICE',#'mean performance, ensemble of 10 MICE imputations',
                 color='grey') #TODO: add error bars? 
@@ -210,22 +211,5 @@ plot_with_break(False)
 # plt.xlim(0,62.5)
 # # plt.ylim(0.7, 0.86)
 # plt.savefig(f'{fig_dir}mice_slurm_train_{metric}.png')
-
-plt.clf()
-
-plt.title(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {DATASET_NAME[dataset]} Dataset')
-plt.hlines(imputation_ensemble_test_auc.mean(), 0,
-           max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
-           label='mean performance, ensemble of 10 MICE imputations', 
-           color='grey') #TODO: add error bars? 
-# uncertainty_bands(sparsity_no_missing, test_auc_no_missing, 'No missingness handling')
-uncertainty_bands(sparsity_indicator, test_auc_indicator, 'Missingness indicators')
-uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
-plt.xlabel('# Nonzero Coefficients')
-plt.ylabel(f'Test {METRIC_NAME[metric]}')
-plt.legend()
-plt.xlim(0,s_size_cutoff)
-# plt.ylim(0.7, 0.735)
-plt.savefig(f'{fig_dir}mice_slurm_test_{metric}.{filetype}')
 
 print('successfully finished execution')

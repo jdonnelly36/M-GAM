@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=nomi_new_ablation # Job name
+#SBATCH --job-name=aug_new_ablation # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=nomi_new_ablation_%j.out
+#SBATCH --output=aug_new_ablation_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -25,11 +25,15 @@ from mice_utils import return_imputation, binarize_according_to_train, eval_mode
 num_quantiles = 8
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
-#2 1  2 2  2 4  9 3
-job = int(os.environ['SLURM_ARRAY_TASK_ID'])
+job = 9#int(os.environ['SLURM_ARRAY_TASK_ID'])
 
 holdouts = [job // 5]#np.arange(10)#[0, 1, 2]
 validations = [job % 5]#np.arange(5)#[0, 1, 2, 3, 4]
+
+# holdouts = np.arange(10)
+# validations = np.arange(5)
+
+
 imputations = np.arange(10)
 
 dataset = 'FICO'
@@ -38,11 +42,12 @@ metric = 'acc'
 mice_validation_metric =  metric
 s_size=100
 
-ablation = f'MICE_{holdouts[0]}_{validations[0]}'
+ablation = f'MICE_{holdouts[0]}_{validations[0]}'# 'mean', 'MICE'
 
-level_aug = 0#0 for no missing, 1 for ind, 2 for aug
+#only used for MICE:
+level_aug = 2#0 for no missing, 1 for ind, 2 for aug
 
-print(level_aug, holdouts, validations, dataset, metric, ablation, job)
+print(level_aug, holdouts, validations, dataset, metric, ablation)#, job)
 
 distinct = ('FICO' in dataset) or ('BREAST_CANCER_MAR' in dataset)
 distinct_str = 'distinct-missingness/' if distinct else ''
@@ -255,31 +260,32 @@ for holdout_idx, holdout_set in enumerate(holdouts):
             
 #save data to csv: 
 print('saving')
-results_path = f'experiment_data/ablation/{dataset}/{ablation}'
+results_path = f'experiment_data/NO_OVERALL_INDICATORS/ablation/{dataset}/{ablation}'
 if not os.path.exists(results_path):
     os.makedirs(results_path)
 
-if level_aug == 0: 
-    np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_no_missing.csv', imputation_ensemble_train_auc)
-    np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_no_missing.csv', imputation_ensemble_test_auc)
-elif level_aug == 1: 
-    np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_indicator.csv', imputation_ensemble_train_auc)
-    np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_indicator.csv', imputation_ensemble_test_auc)
-elif level_aug == 2: 
-    np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_aug.csv', imputation_ensemble_train_auc)
-    np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_aug.csv', imputation_ensemble_test_auc)
+if 'MICE' in ablation: 
+    if level_aug == 0: 
+        np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_no_missing.csv', imputation_ensemble_train_auc)
+        np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_no_missing.csv', imputation_ensemble_test_auc)
+    elif level_aug == 1: 
+        np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_indicator.csv', imputation_ensemble_train_auc)
+        np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_indicator.csv', imputation_ensemble_test_auc)
+    elif level_aug == 2: 
+        np.savetxt(f'{results_path}/imputation_ensemble_train_{metric}_aug.csv', imputation_ensemble_train_auc)
+        np.savetxt(f'{results_path}/imputation_ensemble_test_{metric}_aug.csv', imputation_ensemble_test_auc)
+else: 
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_aug.csv', train_auc_aug)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_indicator.csv', train_auc_indicator)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_no_missing.csv', train_auc_no_missing)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_aug.csv', test_auc_aug)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_indicator.csv', test_auc_indicator)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_no_missing.csv', test_auc_no_missing)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/nllambda.csv', -np.log(lambda_grid[0]))
 
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_aug.csv', train_auc_aug)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_indicator.csv', train_auc_indicator)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/train_{metric}_no_missing.csv', train_auc_no_missing)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_aug.csv', test_auc_aug)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_indicator.csv', test_auc_indicator)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/test_{metric}_no_missing.csv', test_auc_no_missing)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/nllambda.csv', -np.log(lambda_grid[0]))
-
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_aug.csv', sparsity_aug)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_indicator.csv', sparsity_indicator)
-# np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_no_missing.csv',sparsity_no_missing)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_aug.csv', sparsity_aug)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_indicator.csv', sparsity_indicator)
+    np.savetxt(f'experiment_data/{dataset}/{ablation}/sparsity_no_missing.csv',sparsity_no_missing)
 
 
 #can also try pickle file of all hyperparameters, and save to a folder with corresponding hash

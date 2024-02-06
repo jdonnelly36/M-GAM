@@ -135,7 +135,7 @@ for plot_idx, miss_handling in enumerate(miss_handlings):
         imputation_ensemble_test_auc = []
         for holdout in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]: 
             for val in [0, 1, 2, 3, 4]: 
-                imputation_ensemble_test_auc.append( np.loadtxt(f'experiment_data/ablation/{dataset}/MICE_{holdout}_{val}/imputation_ensemble_test_{metric}_{miss_handling}.csv'))
+                imputation_ensemble_test_auc.append( np.loadtxt(f'experiment_data/NO_OVERALL_INDICATORS/ablation/{dataset}/MICE_{holdout}_{val}/imputation_ensemble_test_{metric}_{miss_handling}.csv'))
         ensemble_perf = sum(imputation_ensemble_test_auc)/len(imputation_ensemble_test_auc)
         print(ensemble_perf)
 

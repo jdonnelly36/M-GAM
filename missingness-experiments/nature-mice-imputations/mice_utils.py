@@ -426,7 +426,7 @@ def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
 
-def binarize_and_augment_distinct(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = True, overall_mi_ixn = True, specific_mi_intercept = True, specific_mi_ixn = True):
+def binarize_and_augment_distinct(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = False, overall_mi_ixn = False, specific_mi_intercept = True, specific_mi_ixn = True):
     n_train, _ = train_df.shape
     n_test, _ = test_df.shape
     train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
@@ -535,7 +535,7 @@ def binarize_and_augment_distinct(train_df, test_df, quantiles_for_binarizing = 
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
 
-def binarize_and_augment_distinct_median(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = True, overall_mi_ixn = True, specific_mi_intercept = True, specific_mi_ixn = True):
+def binarize_and_augment_distinct_median(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = False, overall_mi_ixn = False, specific_mi_intercept = True, specific_mi_ixn = True):
     n_train, _ = train_df.shape
     n_test, _ = test_df.shape
     train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
@@ -646,7 +646,7 @@ def binarize_and_augment_distinct_median(train_df, test_df, quantiles_for_binari
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
 
-def binarize_and_augment_distinct_mean(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = True, overall_mi_ixn = True, specific_mi_intercept = True, specific_mi_ixn = True):
+def binarize_and_augment_distinct_mean(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = False, overall_mi_ixn = False, specific_mi_intercept = True, specific_mi_ixn = True):
     n_train, _ = train_df.shape
     n_test, _ = test_df.shape
     train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
@@ -757,7 +757,7 @@ def binarize_and_augment_distinct_mean(train_df, test_df, quantiles_for_binarizi
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
 
-def binarize_and_augment_distinct_imputation(train_df, test_df, imputed_train_df, imputed_test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = True, overall_mi_ixn = True, specific_mi_intercept = True, specific_mi_ixn = True):
+def binarize_and_augment_distinct_imputation(train_df, test_df, imputed_train_df, imputed_test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = False, overall_mi_ixn = False, specific_mi_intercept = True, specific_mi_ixn = True):
     n_train, _ = train_df.shape
     n_test, _ = test_df.shape
     train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
