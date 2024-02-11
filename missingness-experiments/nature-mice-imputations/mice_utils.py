@@ -351,15 +351,24 @@ def binarize_and_augment_imputation(train_df, test_df, imputed_train_df, imputed
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
 
-def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8], label='Overall Survival Status'):
+def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8], label='Overall Survival Status', na_check=lambda x: x.isna()):
     n_train, d_train = train_df.shape
     n_test, d_test = test_df.shape
     train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
     train_no_missing, test_no_missing = {}, {}
+
+    # Figure out what values exist that can indicate missingness
+    possible_missing_vals = []
+    for c in train_df.columns:
+        for v in train_df[na_check(train_df[c])][c].unique():
+            if not (v in possible_missing_vals):
+                possible_missing_vals.append(v)
+    if len(possible_missing_vals) == 0:
+        possible_missing_vals.append(None)
+                
     for c in train_df.columns:
         if c == label:
             continue
-        missing_col_name = f'{c} missing'
         missing_row_train = np.zeros(n_train)
         missing_row_test = np.zeros(n_test)
         for v in list(train_df[c].quantile(quantiles_for_binarizing).unique()):
@@ -367,24 +376,32 @@ def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4
 
             new_row_train = np.zeros(n_train)
             new_row_train[train_df[c] <= v] = 1
+            new_row_train[na_check(train_df[c])] = 0
             train_no_missing[new_col_name] = new_row_train
             train_binned[new_col_name] = new_row_train
             train_augmented_binned[new_col_name] = new_row_train
             
             new_row_test = np.zeros(n_test)
             new_row_test[test_df[c] <= v] = 1
+            new_row_train[na_check(train_df[c])] = 0
             test_no_missing[new_col_name] = new_row_test
             test_binned[new_col_name] = new_row_test
             test_augmented_binned[new_col_name] = new_row_test
 
-        missing_row_train[train_df[c].isna()] = 1
-        missing_row_test[test_df[c].isna()] = 1
+        for mv in possible_missing_vals:
+            missing_col_name = f'{c} missing {mv}'
+            if pd.isna(mv):
+                missing_row_train[train_df[c].isna()] = 1
+                missing_row_test[test_df[c].isna()] = 1
+            else:
+                missing_row_train[train_df[c] == mv] = 1
+                missing_row_test[test_df[c] == mv] = 1
 
-        train_binned[missing_col_name] = missing_row_train
-        train_augmented_binned[missing_col_name] = missing_row_train
-    
-        test_binned[missing_col_name] = missing_row_test
-        test_augmented_binned[missing_col_name] = missing_row_test
+            train_binned[missing_col_name] = missing_row_train
+            train_augmented_binned[missing_col_name] = missing_row_train
+        
+            test_binned[missing_col_name] = missing_row_test
+            test_augmented_binned[missing_col_name] = missing_row_test
     
     for c_outer in train_df.columns:
         if c_outer == label:
@@ -394,15 +411,27 @@ def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4
                 if c_inner == label:
                     continue
                 else:
-                    missing_ixn_name = f'{c_outer} missing & {c_inner} <= {v}'
-                    missing_ixn_row_train = np.zeros(n_train)
-                    missing_ixn_row_test = np.zeros(n_test)
 
-                    missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner] <= v)] = 1
-                    missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner] <= v)] = 1
+                    for mv in possible_missing_vals:
+                        missing_ixn_name = f'{c_outer} missing {mv} & {c_inner} <= {v}'
+                        missing_ixn_row_train = np.zeros(n_train)
+                        missing_ixn_row_test = np.zeros(n_test)
 
-                    train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
-                    test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                        if pd.isna(mv):
+                            missing_ixn_row_train[(train_df[c_outer].isna()) & (train_df[c_inner] <= v)] = 1
+                            missing_ixn_row_test[(test_df[c_outer].isna()) & (test_df[c_inner] <= v)] = 1
+
+                            missing_ixn_row_train[(train_df[c_outer].isna()) & (na_check(train_df[c_inner]))] = 0
+                            missing_ixn_row_test[(test_df[c_outer].isna()) & (na_check(test_df[c_inner]))] = 0
+                        else:
+                            missing_ixn_row_train[(train_df[c_outer] == mv) & (train_df[c_inner] <= v)] = 1
+                            missing_ixn_row_test[(test_df[c_outer] == mv) & (test_df[c_inner] <= v)] = 1
+
+                            missing_ixn_row_train[(train_df[c_outer] == mv) & (na_check(train_df[c_inner]))] = 0
+                            missing_ixn_row_test[(test_df[c_outer] == mv) & (na_check(test_df[c_inner]))] = 0
+
+                        train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                        test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
                         
     train_binned[label] = train_df[label]
     test_binned[label] = test_df[label]
@@ -425,6 +454,7 @@ def binarize_and_augment(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4
             pd.DataFrame(test_binned)[label].values, 
             pd.DataFrame(test_augmented_binned)[label].values, 
     )
+
 
 def binarize_and_augment_distinct(train_df, test_df, quantiles_for_binarizing = [0.2, 0.4, 0.6, 0.8, 1], label = 'PoorRiskPerformance', miss_vals = [-7, -8, -9], overall_mi_intercept = False, overall_mi_ixn = False, specific_mi_intercept = True, specific_mi_ixn = True):
     n_train, _ = train_df.shape
