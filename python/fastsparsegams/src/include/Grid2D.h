@@ -17,6 +17,7 @@ class Grid2D {
   GridParams<T> PG;
   const T *X;
   const arma::vec *y;
+  arma::vec weights;
   std::size_t p;
   std::vector<std::vector<std::unique_ptr<FitResult<T>>>> G;
   // each inner vector corresponds to a single lambda_1/lambda_2
@@ -28,17 +29,18 @@ class Grid2D {
   Params<T> P;
 
  public:
-  Grid2D(const T &Xi, const arma::vec &yi, const GridParams<T> &PGi);
+  Grid2D(const T &Xi, const arma::vec &yi, const GridParams<T> &PGi, const arma::vec &weights = arma::zeros<arma::vec>(2));
   ~Grid2D();
   std::vector<std::vector<std::unique_ptr<FitResult<T>>>> Fit();
 };
 
 template <class T>
-Grid2D<T>::Grid2D(const T &Xi, const arma::vec &yi, const GridParams<T> &PGi) {
+Grid2D<T>::Grid2D(const T &Xi, const arma::vec &yi, const GridParams<T> &PGi, const arma::vec &weights) {
   // automatically selects lambda_0 (but assumes other lambdas are given in
   // PG.P.ModelParams)
   X = &Xi;
   y = &yi;
+  this->weights = weights;
   p = Xi.n_cols;
   PG = PGi;
   G_nrows = PG.G_nrows;
@@ -136,6 +138,10 @@ std::vector<std::vector<std::unique_ptr<FitResult<T>>>> Grid2D<T>::Fit() {
 			b0 -= partial_b0;
 			inverse_ExpyXB %= arma::exp( partial_b0 * *y);
 		}
+
+        if (arma::accu(weights) != 0) {
+            inverse_ExpyXB = this->weights % inverse_ExpyXB;
+        }
 		PG.P.b0 = b0;
 		Xtrarma = arma::abs(- arma::trans(*y % inverse_ExpyXB) * *X).t(); // = gradient of exponential loss at zero
 	}
@@ -207,7 +213,7 @@ std::vector<std::vector<std::unique_ptr<FitResult<T>>>> Grid2D<T>::Fit() {
     // std::vector<std::unique_ptr<FitResult>> Gl();
     // auto Gl = Grid1D(*X, *y, PG).Fit();
     //  Rcpp::Rcout << "Grid1D Start: " << i << "\n";
-    G.push_back(std::move(Grid1D<T>(*X, *y, PG).Fit()));
+    G.push_back(std::move(Grid1D<T>(*X, *y, PG, this->weights).Fit()));
   }
 
   return std::move(G);

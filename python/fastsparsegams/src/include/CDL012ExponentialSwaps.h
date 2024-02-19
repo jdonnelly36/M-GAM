@@ -25,6 +25,7 @@ class CDL012ExponentialSwaps : public CDSwaps<T> {
 
 		//////// new variables for expo loss
 		arma::vec inverse_ExpyXB;
+        arma::vec weights;
 		double d_minus;
 		double d_plus;
 		double current_expo_loss;
@@ -32,7 +33,7 @@ class CDL012ExponentialSwaps : public CDSwaps<T> {
 		std::unordered_map<std::size_t, arma::uvec> * Xy_neg_indices;
 
 	public:
-		CDL012ExponentialSwaps(const T& Xi, const arma::vec& yi, const Params<T>& P);
+		CDL012ExponentialSwaps(const T& Xi, const arma::vec& yi, const Params<T>& P, const arma::vec &weights = arma::zeros<arma::vec>(2));
 
 		FitResult<T> _FitWithBounds() final;
 
@@ -58,11 +59,12 @@ inline double CDL012ExponentialSwaps<T>::Objective() {
 };
 
 template <class T>
-CDL012ExponentialSwaps<T>::CDL012ExponentialSwaps(const T& Xi, const arma::vec& yi, const Params<T>& Pi) : CDSwaps<T>(Xi, yi, Pi) {
+CDL012ExponentialSwaps<T>::CDL012ExponentialSwaps(const T& Xi, const arma::vec& yi, const Params<T>& Pi, const arma::vec &weights) : CDSwaps<T>(Xi, yi, Pi) {
 	twolambda2 = 2 * this->lambda2;
 	qp2lamda2 = (LipschitzConst + twolambda2); // this is the univariate lipschitz const of the differentiable objective
 	this->thr2 = (2 * this->lambda0) / qp2lamda2;
 	this->thr = std::sqrt(this->thr2);
+    this->weights = weights;
 	stl0Lc = std::sqrt((2 * this->lambda0) * qp2lamda2);
 	lambda1ol = this->lambda1 / qp2lamda2;
 	Xy = Pi.Xy;
@@ -77,7 +79,7 @@ FitResult<T> CDL012ExponentialSwaps<T>::_FitWithBounds() {
 
 template <class T>
 FitResult<T> CDL012ExponentialSwaps<T>::_Fit() {
-	auto result = CDL012Exponential<T>(*(this->X), this->y, this->P).Fit(); // result will be maintained till the end
+	auto result = CDL012Exponential<T>(*(this->X), this->y, this->P, this->weights).Fit(); // result will be maintained till the end
 
 	this->b0 = result.b0; // Initialize from previous later....!
 	this->B = result.B;
@@ -185,7 +187,7 @@ FitResult<T> CDL012ExponentialSwaps<T>::_Fit() {
 					// TODO: Check if this line is necessary. P should already have b0.
 					this->P.b0 = this->b0;
 
-					result = CDL012Exponential<T>(*(this->X), this->y, this->P).Fit();
+					result = CDL012Exponential<T>(*(this->X), this->y, this->P, this->weights).Fit();
 
 					inverse_ExpyXB = result.inverse_ExpyXB;
 					this->B = result.B;

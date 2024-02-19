@@ -141,7 +141,8 @@ fitmodel L0LearnFit(const T &X, const arma::vec &y, const std::string Loss,
                     const std::vector<std::vector<double>> &Lambdas,
                     const std::size_t ExcludeFirstK, const bool Intercept,
                     const bool withBounds, const arma::vec &Lows,
-                    const arma::vec &Highs) {
+                    const arma::vec &Highs, 
+                    const arma::vec &weights = arma::zeros<arma::vec>(2)) {
 //   COUT << "L0LearnCore.h L0LearnFit Entered. \n";
 //   COUT << "L0LearnCore.h X shape = " << X.n_rows << ", " << X.n_cols << "\n";
 //   COUT << "L0LearnCore.h y shape = " << y.n_rows << "\n";
@@ -165,7 +166,7 @@ fitmodel L0LearnFit(const T &X, const arma::vec &y, const std::string Loss,
   // arma::cout << "PG.P.Specs.CD " << PG.P.Specs.CD;
   // arma::cout << "PG.P.Specs.CD " << PG.P.Specs.CD;
   // arma::cout << "Grid<T> G Entering";
-  Grid<T> G(X, y, PG);
+  Grid<T> G(X, y, PG, weights);
   // arma::cout << "Grid<T> G.Fit Entering";
   G.Fit();
 

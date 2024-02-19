@@ -18,6 +18,7 @@ class Grid {
   arma::vec yscaled;
   arma::vec BetaMultiplier;
   arma::vec meanX;
+  arma::vec weights;
   double meany;
   double scaley;
 
@@ -31,15 +32,16 @@ class Grid {
   std::vector<std::vector<double>> Intercepts;
   std::vector<std::vector<bool>> Converged;
 
-  Grid(const T &X, const arma::vec &y, const GridParams<T> &PG);
+  Grid(const T &X, const arma::vec &y, const GridParams<T> &PG, const arma::vec &weights = arma::zeros<arma::vec>(2));
   //~Grid();
 
   void Fit();
 };
 
 template <class T>
-Grid<T>::Grid(const T &X, const arma::vec &y, const GridParams<T> &PGi) {
+Grid<T>::Grid(const T &X, const arma::vec &y, const GridParams<T> &PGi, const arma::vec &weights) {
   PG = PGi;
+  this->weights = weights;
 
   if (!PG.P.Specs.Exponential) { // if the loss is not exponential
     std::tie(BetaMultiplier, meanX, meany, scaley) = Normalize(
@@ -68,10 +70,14 @@ void Grid<T>::Fit() {
   std::vector<std::vector<std::unique_ptr<FitResult<T>>>> G;
 
   if (PG.P.Specs.L0) {
-    G.push_back(std::move(Grid1D<T>(Xscaled, yscaled, PG).Fit()));
+    //std::cout << "Proceding to grid1d" << "\n";
+    //std::cout << "weights is in grid as: " << this->weights << "\n";
+    G.push_back(std::move(Grid1D<T>(Xscaled, yscaled, PG, this->weights).Fit()));
     Lambda12.push_back(0);
   } else {
-    G = std::move(Grid2D<T>(Xscaled, yscaled, PG).Fit());
+    //std::cout << "Proceding to grid2d" << "\n";
+    //std::cout << "weights is in grid as: " << this->weights << "\n";
+    G = std::move(Grid2D<T>(Xscaled, yscaled, PG, this->weights).Fit());
   }
 
   Lambda0 = std::vector<std::vector<double>>(G.size());

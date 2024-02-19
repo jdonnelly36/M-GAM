@@ -335,6 +335,7 @@ def _fit_check(
 def fit(
     X: Union[np.ndarray, csc_matrix],
     y: np.ndarray,
+    weights: np.ndarray = None,
     loss: str = "SquaredError",
     penalty: str = "L0",
     algorithm: str = "CD",
@@ -369,6 +370,10 @@ def fit(
     y : np.ndarray of shape (P)
         The response vector where y[i] corresponds to X[i, :]
         For classification, a binary vector (-1, 1) is requried .
+
+    weights : np.ndarray of shape (P)
+        The weight to assign to each sample depending on the probability
+        of it being measured correctly
 
     loss : str
         The loss function. Currently supports the choices:
@@ -553,64 +558,42 @@ def fit(
     lows = check["lows"]
     highs = check["highs"]
 
+    args = (
+        X,  # const T &X,
+        y,  # const arma::vec &y,
+        loss,  # const std::string Loss,
+        penalty,  # const std::string Penalty,
+        algorithm,  # const std::string Algorithm,
+        max_support_size,  # const std::size_t NnzStopNum,
+        num_lambda,  # const std::size_t G_ncols,
+        num_gamma,  # const std::size_t G_nrows,
+        gamma_max,  # const double Lambda2Max,
+        gamma_min,  # const double Lambda2Min,
+        partial_sort,  # const bool PartialSort,
+        max_iter,  # const std::size_t MaxIters,
+        rtol,  # const double rtol,
+        atol,  # const double atol,
+        active_set,  # const bool ActiveSet,
+        active_set_num,  # const std::size_t ActiveSetNum,
+        max_swaps,  # const std::size_t MaxNumSwaps,
+        scale_down_factor,  # const double ScaleDownFactor,
+        screen_size,  # const std::size_t ScreenSize,
+        not auto_lambda,  # const bool LambdaU,
+        lambda_grid,  # const std::vector<std::vector<double>> &Lambdas,
+        exclude_first_k,  # const std::size_t ExcludeFirstK,
+        intercept,  # const bool Intercept,
+        with_bounds,  # const bool withBounds,
+        lows,  # const arma::vec &Lows,
+        highs,
+        weights if not (weights is None) else np.zeros(2))
+
+    #print("Using the updated code")
+    #print(weights, weights is None)
+
     if isinstance(X, np.ndarray):
-        c_results = _L0LearnFit_dense(
-            X,  # const T &X,
-            y,  # const arma::vec &y,
-            loss,  # const std::string Loss,
-            penalty,  # const std::string Penalty,
-            algorithm,  # const std::string Algorithm,
-            max_support_size,  # const std::size_t NnzStopNum,
-            num_lambda,  # const std::size_t G_ncols,
-            num_gamma,  # const std::size_t G_nrows,
-            gamma_max,  # const double Lambda2Max,
-            gamma_min,  # const double Lambda2Min,
-            partial_sort,  # const bool PartialSort,
-            max_iter,  # const std::size_t MaxIters,
-            rtol,  # const double rtol,
-            atol,  # const double atol,
-            active_set,  # const bool ActiveSet,
-            active_set_num,  # const std::size_t ActiveSetNum,
-            max_swaps,  # const std::size_t MaxNumSwaps,
-            scale_down_factor,  # const double ScaleDownFactor,
-            screen_size,  # const std::size_t ScreenSize,
-            not auto_lambda,  # const bool LambdaU,
-            lambda_grid,  # const std::vector<std::vector<double>> &Lambdas,
-            exclude_first_k,  # const std::size_t ExcludeFirstK,
-            intercept,  # const bool Intercept,
-            with_bounds,  # const bool withBounds,
-            lows,  # const arma::vec &Lows,
-            highs,
-        )  # const arma::vec &Highs
+        c_results = _L0LearnFit_dense(*args)  # const arma::vec &Highs
     elif isinstance(X, csc_matrix):
-        c_results = _L0LearnFit_sparse(
-            X,  # const T &X,
-            y,  # const arma::vec &y,
-            loss,  # const std::string Loss,
-            penalty,  # const std::string Penalty,
-            algorithm,  # const std::string Algorithm,
-            max_support_size,  # const std::size_t NnzStopNum,
-            num_lambda,  # const std::size_t G_ncols,
-            num_gamma,  # const std::size_t G_nrows,
-            gamma_max,  # const double Lambda2Max,
-            gamma_min,  # const double Lambda2Min,
-            partial_sort,  # const bool PartialSort,
-            max_iter,  # const std::size_t MaxIters,
-            rtol,  # const double rtol,
-            atol,  # const double atol,
-            active_set,  # const bool ActiveSet,
-            active_set_num,  # const std::size_t ActiveSetNum,
-            max_swaps,  # const std::size_t MaxNumSwaps,
-            scale_down_factor,  # const double ScaleDownFactor,
-            screen_size,  # const std::size_t ScreenSize,
-            not auto_lambda,  # const bool LambdaU,
-            lambda_grid,  # const std::vector<std::vector<double>> &Lambdas,
-            exclude_first_k,  # const std::size_t ExcludeFirstK,
-            intercept,  # const bool Intercept,
-            with_bounds,  # const bool withBounds,
-            lows,  # const arma::vec &Lows,
-            highs,
-        )  # const arma::vec &Highs
+        c_results = _L0LearnFit_sparse(*args)  # const arma::vec &Highs
 
     results = FitModel(
         settings={"loss": loss, "intercept": intercept, "penalty": penalty},

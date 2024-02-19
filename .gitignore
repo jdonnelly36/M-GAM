@@ -1,12 +1,17 @@
 inst/doc
+.RHistory
 .Rproj*
 .DS_Store
+*.png
 *.o
 *.so
 *.tmp
 *.csv
+*.npy
+*.index
 *.dat
 tests/box_test/.hypothesis/
+handling_missing_data/tmp/
 *.ipynb_checkpoints/
 *.DS_Store
 .RHistory
@@ -20,6 +25,7 @@ tests/profile/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
+handling_missing_data/__pycache__/
 *.py[cod]
 *$py.class
 

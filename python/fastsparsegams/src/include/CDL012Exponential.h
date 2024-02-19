@@ -35,7 +35,7 @@ class CDL012Exponential : public CD<T, CDL012Exponential<T>> {
 
 
 	public:
-		CDL012Exponential(const T& Xi, const arma::vec& yi, const Params<T>& P);
+		CDL012Exponential(const T& Xi, const arma::vec& yi, const Params<T>& P, const arma::vec &weights = arma::zeros<arma::vec>(2));
 		//~CDL012Logistic(){}
 
 		FitResult<T> _FitWithBounds() final;
@@ -126,14 +126,21 @@ inline double CDL012Exponential<T>::Objective() {  // hint inline
 }
 
 template <class T>
-CDL012Exponential<T>::CDL012Exponential(const T& Xi, const arma::vec& yi, const Params<T>& P) : CD<T, CDL012Exponential<T>>(Xi, yi, P) {
+CDL012Exponential<T>::CDL012Exponential(const T& Xi, const arma::vec& yi, const Params<T>& P, const arma::vec &weights) : CD<T, CDL012Exponential<T>>(Xi, yi, P) {
 	twolambda2 = 2 * this->lambda2;
 	qp2lamda2 = (LipschitzConst + twolambda2); // this is the univariate lipschitz const of the differentiable objective
 	this->thr2 = (2 * this->lambda0) / qp2lamda2;
 	this->thr = std::sqrt(this->thr2);
 	lambda1ol = this->lambda1 / qp2lamda2;
 
-	this->inverse_ExpyXB = arma::exp(-this->y % (*(this->X) * this->B + this->b0)); // Maintained throughout the algorithm
+    if (arma::accu(weights) != 0) {
+        //std::cout << "weights is not empty " << "\n";
+        this->inverse_ExpyXB = weights % arma::exp(-this->y % (*(this->X) * this->B + this->b0));
+    } else {
+        //std::cout << "weights is empty " << "\n";
+        this->inverse_ExpyXB = arma::exp(-this->y % (*(this->X) * this->B + this->b0)); // Maintained throughout the algorithm
+    }
+    //std::cout << "weights is: " << weights << "\n";
 																																									 // Xy = P.Xy;
 	this->current_expo_loss = arma::sum(this->inverse_ExpyXB);
 	Xy_neg_indices = P.Xy_neg_indices;
