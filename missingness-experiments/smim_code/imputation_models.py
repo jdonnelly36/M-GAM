@@ -119,6 +119,7 @@ class MIM(MissingIndicator):
                         # if p_val < self.alpha:
                         #     indicators_to_keep.append(i)
 
+                        print(f"P val for feature {i} is {p_val}")
                         self.p_vals.append(p_val)
 
                     # self.features_ = np.array(indicators_to_keep)

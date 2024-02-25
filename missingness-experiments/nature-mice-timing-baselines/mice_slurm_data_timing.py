@@ -167,9 +167,11 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
 
                     X_train, y_train_imp = train_imp[predictors], train_imp[label]
                     X_test, y_test_imp = test_imp[predictors], test_imp[label]
-                    if use_smim:
-                        X_train = pd.concat([X_train, pd.DataFrame(train_X_SMIM)], axis=1)
-                        X_test = pd.concat([X_test, pd.DataFrame(test_X_SMIM)], axis=1)
+                    if use_smim and train_X_SMIM.shape[1] > 0:
+                        print(train_X_SMIM)
+                        print(pd.DataFrame(train_X_SMIM))
+                        X_train = pd.DataFrame(np.concatenate([X_train.values, train_X_SMIM], axis=1))
+                        X_test = pd.DataFrame(np.concatenate([X_test.values, test_X_SMIM], axis=1))
 
                     assert np.linalg.norm(y_train_imp - y_train) < 1e-3, \
                         "Error: Label ordering is not consistent across imputations"
@@ -463,7 +465,7 @@ if __name__ == '__main__':
     ]
 
     param_grids = [
-        {'C':[0.01, 0.1, 1, 10, 100], 'penalty': ['l2']},#, 'elasticnet')},
+        {'C':[0.01, 0.1, 1, 10, 100], 'penalty': ['l2'], 'max_iter': [1000]},#, 'elasticnet')},
         {'n_estimators':[25, 50, 100, 200], 'criterion':("gini", "entropy")},
         {'n_estimators':[10, 25, 50, 100, 200]},
         {'max_depth':[3, 5, 7, 9, None], 'criterion':("gini", "entropy")},
@@ -665,7 +667,7 @@ if __name__ == '__main__':
     '''
 
     for imputation_method in ['MICE']:#, 'Mean', 'MissForest', 'MIWAE', 'GAIN']:
-        for ds_name in ['PHARYNGITIS']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
+        for ds_name in ['BREAST_CANCER', 'PHARYNGITIS', 'FICO']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
             print(f"Running for {imputation_method}, {ds_name}")
             #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
             if False and 'FICO' == ds_name:
