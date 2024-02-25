@@ -112,7 +112,8 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
         'mean_fit_time': [],
         'num_imputations': [],
         'dataset': [],
-        'use_smim': []
+        'use_smim': [],
+        'smim_time': []
     }
     for model_index, model_initializer in enumerate(model_types):
         for holdout_set in holdouts:
@@ -140,6 +141,11 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
             _, y_train = train_full[predictors], train_full[label]
             _, y_test = test[predictors], test[label]
 
+            if use_smim:
+                train_X_SMIM, test_X_SMIM, SMIM_time = get_smim_dataset(train_full[predictors], train_full[label], test[predictors])
+            else:
+                SMIM_time = 0
+
             fit_times = []
             print("Type of model init is", str(model_initializer))
             if 'xgboost' in str(model_initializer):
@@ -147,8 +153,8 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
                 clf.fit(train_full[predictors], train_full[label])
                 fit_times = fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
 
-                imputation_train_probs = clf.predict_proba(train_full[predictors])[:, 1]
-                imputation_test_probs = clf.predict_proba(test[predictors])[:, 1]
+                ensembled_train_probs = clf.predict_proba(train_full[predictors])[:, 1]
+                ensembled_test_probs = clf.predict_proba(test[predictors])[:, 1]
 
             else:
                 for imputation in range(imputations):
@@ -161,6 +167,9 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
 
                     X_train, y_train_imp = train_imp[predictors], train_imp[label]
                     X_test, y_test_imp = test_imp[predictors], test_imp[label]
+                    if use_smim:
+                        X_train = pd.concat([X_train, pd.DataFrame(train_X_SMIM)], axis=1)
+                        X_test = pd.concat([X_test, pd.DataFrame(test_X_SMIM)], axis=1)
 
                     assert np.linalg.norm(y_train_imp - y_train) < 1e-3, \
                         "Error: Label ordering is not consistent across imputations"
@@ -197,6 +206,8 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
                 metric_dict['mean_fit_time'] = metric_dict['mean_fit_time'] + [np.mean(fit_times)]
                 metric_dict['std_fit_time'] = metric_dict['std_fit_time'] + [np.std(fit_times)]
                 metric_dict['dataset'] = metric_dict['dataset'] + [dataset_name]
+                metric_dict['use_smim'] = metric_dict['use_smim'] + [use_smim]
+                metric_dict['smim_time'] = metric_dict['smim_time'] + [SMIM_time]
 
 
                 if slurm_iter is None:
@@ -686,7 +697,8 @@ if __name__ == '__main__':
                                     [param_grids[slurm_iter // len(holdouts)]], dataset, dataset_imp, dataset_suffix,
                                     dataset_name=f'{ds_name}', imputation_method=imputation_method, 
                                     imputations=imputations, holdouts=[holdouts[slurm_iter % len(holdouts)]],
-                                    val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy')
+                                    val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy',
+                                    use_smim=(slurm_iter // (len(holdouts) * len(model_types))) < 1)
 
                         # We only want to run the GAM bit num_holdouts times
                         # rather than num_holdouts * num_baselines times
