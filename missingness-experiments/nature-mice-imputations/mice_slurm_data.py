@@ -32,6 +32,11 @@ metric = 'auc'
 
 print(f'{num_quantiles}')
 
+overall_mi_intercept = False
+overall_mi_ixn = False
+specific_mi_intercept = True
+specific_mi_ixn = True
+
 ### Immutable ###
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 holdouts = np.arange(10)
@@ -118,8 +123,11 @@ for holdout_set in holdouts:
         predictors = train.columns[:-1]
 
         encoder = Binarizer(quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1], label=label, 
-                            miss_vals=[np.nan, -7, -8, -9, -10]) # TODO: encode to the specific set of missingness values for this dataset, 
-                                                                 # or add functionality to prune out non-occurring missingness values in binarizer
+                            miss_vals=[np.nan, -7, -8, -9, -10], 
+                            overall_mi_intercept = overall_mi_intercept, overall_mi_ixn = overall_mi_ixn, 
+                            specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn) 
+        # TODO: encode miss_vals to the specific set of missingness values for this dataset, 
+        # or add functionality to prune out non-occurring missingness values in binarizer
 
         ###########################
         ### Imputation approach ###
@@ -222,7 +230,7 @@ for holdout_set in holdouts:
 
 results_path = f'experiment_data/{dataset}{q_str}'
 if train_miss != 0 or test_miss != 0: 
-    results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
+    results_path = f'{results_path}/train_{train_miss}/test_{test_miss}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}/'
 if not os.path.exists(results_path):
     os.makedirs(results_path)
 
