@@ -226,17 +226,17 @@ class _DataLoaderBase(metaclass=ABCMeta):
         self.get_cols_data()
 
 
-class DataLoaderMIMIC(_DataLoaderBase):
-    def __init__(self):
-        super().__init__()
-        self.datadir = "DATA/MIMIC_III/MIMIC_subset_mcar"
-        self.outcome_col = "outcome"
+# class DataLoaderMIMIC(_DataLoaderBase):
+#     def __init__(self):
+#         super().__init__()
+#         self.datadir = "DATA/MIMIC_III/MIMIC_subset_mcar"
+#         self.outcome_col = "outcome"
 
-    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
-        return self._data_paths_artificial(experiment)
+#     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+#         return self._data_paths_artificial(experiment)
 
 
-dataloaders["MIMIC"] = DataLoaderMIMIC
+# dataloaders["MIMIC"] = DataLoaderMIMIC
 
 
 class DataLoaderSynthetic(_DataLoaderBase):
@@ -495,4 +495,15 @@ class DataLoaderFico_MAR_50(DataLoaderFico_MAR):
         super().__init__()
         self.datadir = ("DATA/FICO_MAR/0.5")
 dataloaders["FICO_MAR_50"] = DataLoaderFico_MAR_50
+
+class DataLoaderMIMIC(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/MIMIC")
+        self.outcome_col = "hospital_expire_flag"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["MIMIC"] = DataLoaderMIMIC
     

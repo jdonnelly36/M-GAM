@@ -45,7 +45,7 @@ PERCENTAGES = {
     "SYNTHETIC_CATEGORICAL_MAR_25": [0.25, 0.5],
     "SYNTHETIC_MAR_50": [0, 0.25, 0.5],
     "SYNTHETIC_CATEGORICAL_MAR_50": [0.25, 0.5],
-    "MIMIC": [0.25, 0.5],
+    "MIMIC": [0],
     "NHSX_COVID19": [0],
     "BREAST_CANCER": [0],
     "FICO": [0],
