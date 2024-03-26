@@ -1,12 +1,12 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=newdistinct # Job name
+#SBATCH --job-name=pharyngitis # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=newdistinct_%j.out
+#SBATCH --output=loss_fico_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60],gpu-compute[1-7]
+#not SBATCH  -x linux[41-60]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 import os
@@ -19,25 +19,25 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, binarize_and_augment_distinct, errors
+from mice_utils_copy import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, binarize_and_augment_distinct, errors
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
-holdouts = np.arange(10)#[0, 1, 2]
+holdouts = np.arange(10)#[0, 1, 2]#[0,1]
 validations = np.arange(5)#
 imputations = np.arange(10)
 
-dataset = 'BREAST_CANCER_MAR_25'
+dataset = 'MIMIC'
 train_miss = 0
 test_miss = train_miss
 
-metric = 'auc'
+metric = 'loss'
 mice_validation_metric = metric
 s_size=100
 
-distinct_missingness = True
+distinct_missingness = False if dataset not in ['FICO', 'BRECA'] else True #setting to false for mimic runs with old utils
 
 q_str = ''
 if num_quantiles != 8:
@@ -50,12 +50,14 @@ if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
 def calc_auc(y, score): 
     fpr, tpr, _ = metrics.roc_curve(y, score)
     return metrics.auc(fpr, tpr)
+loss_eps = 1e-40
+print(f'USING loss_eps {loss_eps}')
 METRIC_FN = {
     'acc': lambda y, score: np.mean(
         (score > 0.5) == y),
     'auprc': lambda y, score: metrics.average_precision_score(y, score),
     'auc': calc_auc, 
-    'loss': lambda y, probs: np.exp(np.log(probs/(1 - probs))*-1/2*(2*y-1)).mean()
+    'loss': lambda y, probs: np.exp(np.log(probs/(1 - probs+loss_eps))*-1/2*(2*y-1)).mean()
 }
 
 def path_to_imputed(dataset, holdout_set, val_set, imputation):
@@ -105,6 +107,7 @@ sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
     print(holdout_set)
+    sys.stdout.flush()
     for val_set in validations: 
         train = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_train_{val_set}{miss_str}.csv')
         val = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_val_{val_set}{miss_str}.csv')
@@ -226,7 +229,7 @@ for holdout_set in holdouts:
         
 print('saving\n')
 
-results_path = f'experiment_data/NO_OVERALL_INDICATORS/{dataset}{q_str}' if not distinct_missingness else f'experiment_data/{dataset}/distinct{q_str}'
+results_path =f'experiment_data/{dataset}/{q_str}' if not distinct_missingness else f'experiment_data/{dataset}/distinct{q_str}'# f'experiment_data/NO_OVERALL_INDICATORS/{dataset}{q_str}' if not distinct_missingness else 
 if train_miss != 0 or test_miss != 0: 
     results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
 if not os.path.exists(results_path):

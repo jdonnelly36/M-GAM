@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60],gpu-compute[1-7]
+#not SBATCH  -x linux[41-60]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 import os
@@ -24,9 +24,10 @@ from cycler import cycler
 plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#808080'])
 # plt.rcParams.update({'font.size': 16})
 
-dataset = 'BREAST_CANCER_MAR_50'
-metric = 'auc'
+dataset = 'PHARYNGITIS'
+metric = 'acc'
 filetype = 'pdf'
+distinct = False if dataset not in ['FICO', 'BRECA'] else True
 
 DATASET_NAME = {
     'FICO': 'FICO',
@@ -43,6 +44,8 @@ DATASET_NAME = {
     'SYNTHETIC_CATEGORICAL_MAR': 'Synthetic Categorical MAR',
     'SYNTHETIC_CATEGORICAL_MAR_50': 'Synthetic Categorical data, MAR missingness 0.5',
     'SYNTHETIC_CATEGORICAL_MAR_25': 'Synthetic Categorical data, MAR missingness 0.5',
+    'MIMIC': 'MIMIC-III',
+    'PHARYNGITIS': 'Pharyngitis'
 }
 
 METRIC_NAME = {
@@ -61,7 +64,7 @@ quantile_addition = f' for quantiles = {num_quantiles}' if num_quantiles != 8 el
 
 #load data files from csv: 
 
-res_dir = f'experiment_data/{dataset}/distinct/'
+res_dir = f'experiment_data/{dataset}/distinct/' if distinct else f'experiment_data/{dataset}/'
 if train_miss != 0 or test_miss != 0: 
     res_dir = f'{res_dir}/train_{train_miss}/test_{test_miss}'
 if num_quantiles != 8: 
