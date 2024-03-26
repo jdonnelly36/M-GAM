@@ -27,7 +27,7 @@ plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#80808
 dataset = 'PHARYNGITIS'
 metric = 'acc'
 filetype = 'pdf'
-distinct = False if dataset not in ['FICO', 'BRECA'] else True
+distinct = False if dataset not in ['FICO'] else True
 
 DATASET_NAME = {
     'FICO': 'FICO',

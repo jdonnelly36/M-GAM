@@ -2,7 +2,7 @@
 #SBATCH --job-name=pharyngitis # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=loss_fico_%j.out
+#SBATCH --output=loss_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -29,7 +29,7 @@ holdouts = np.arange(10)#[0, 1, 2]#[0,1]
 validations = np.arange(5)#
 imputations = np.arange(10)
 
-dataset = 'MIMIC'
+dataset = 'BREAST_CANCER'
 train_miss = 0
 test_miss = train_miss
 
@@ -37,7 +37,7 @@ metric = 'loss'
 mice_validation_metric = metric
 s_size=100
 
-distinct_missingness = False if dataset not in ['FICO', 'BRECA'] else True #setting to false for mimic runs with old utils
+distinct_missingness = False if dataset not in ['FICO'] else True #setting to false for mimic runs with old utils
 
 q_str = ''
 if num_quantiles != 8:
@@ -51,7 +51,7 @@ def calc_auc(y, score):
     fpr, tpr, _ = metrics.roc_curve(y, score)
     return metrics.auc(fpr, tpr)
 loss_eps = 1e-40
-print(f'USING loss_eps {loss_eps}')
+print(f'USING loss_eps {loss_eps}, for dataset {dataset}')
 METRIC_FN = {
     'acc': lambda y, score: np.mean(
         (score > 0.5) == y),
