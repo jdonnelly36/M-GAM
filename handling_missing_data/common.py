@@ -33,7 +33,8 @@ DATASETS = [
     "FICO_MAR_25", 
     "FICO_MAR_50",
     "BREAST_CANCER_MAR_25", 
-    "BREAST_CANCER_MAR_50"
+    "BREAST_CANCER_MAR_50", 
+    "APS"
 ]
 IMPUTATIONS = ["Mean", "MICE", "MissForest", "MIWAE", "GAIN"]
 PERCENTAGES = {
@@ -55,7 +56,8 @@ PERCENTAGES = {
     "FICO_MAR_25": [0], 
     "FICO_MAR_50": [0],
     "BREAST_CANCER_MAR_25": [0],
-    "BREAST_CANCER_MAR_50": [0]
+    "BREAST_CANCER_MAR_50": [0], 
+    'APS': [0]
 }
 N_HOLDOUT_SETS = 3
 N_VAL_SETS = 5  # 5 validation sets per holdout set

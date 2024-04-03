@@ -506,4 +506,15 @@ class DataLoaderMIMIC(_DataLoaderBase):
         return self._data_paths_natural(experiment)
 
 dataloaders["MIMIC"] = DataLoaderMIMIC
+
+class DataLoaderAPS(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/APS")
+        self.outcome_col = "class"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["APS"] = DataLoaderAPS
     
