@@ -1,12 +1,12 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=breca # Job name
+#SBATCH --job-name=fico # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=breca_%j.out
+#SBATCH --output=fico_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60],gpu-compute[1-7]
+#not SBATCH  -x linux[41-60]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 import os
@@ -19,17 +19,25 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors
+from mice_utils import eval_model, get_train_test_binarized
+from binarizer import Binarizer
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'BREAST_CANCER'
+dataset = 'FICO'
 train_miss = 0
 test_miss = train_miss
 
-metric = 'auc'
+metric = 'acc'
 
 print(f'{num_quantiles}')
+
+overall_mi_intercept = False
+overall_mi_ixn = False
+specific_mi_intercept = True
+specific_mi_ixn = True
+
+print(f'{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}')
 
 ### Immutable ###
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
@@ -38,6 +46,7 @@ validations = np.arange(5)
 imputations = np.arange(10)
 mice_validation_metric = metric
 s_size=100
+np.random.seed(0)
 ###################
 
 ### basic hyperparameter processing ###
@@ -116,6 +125,13 @@ for holdout_set in holdouts:
         label = train.columns[-1]
         predictors = train.columns[:-1]
 
+        encoder = Binarizer(quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1], label=label, 
+                            miss_vals=[-7. -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
+                            overall_mi_intercept = overall_mi_intercept, overall_mi_ixn = overall_mi_ixn, 
+                            specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn) 
+        # TODO: encode miss_vals to the specific set of missingness values for this dataset, 
+        # or add functionality to prune out non-occurring missingness values in binarizer
+
         ###########################
         ### Imputation approach ###
         ###########################
@@ -188,9 +204,8 @@ for holdout_set in holdouts:
 
         (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
         y_train_no, y_train_ind, y_train_aug, 
-        y_test_no, y_test_ind, y_test_aug) = binarize_and_augment(
-            pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label
-            )
+        y_test_no, y_test_ind, y_test_aug) = encoder.binarize_and_augment(
+            pd.concat([train, val]), test)
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)
@@ -217,6 +232,7 @@ for holdout_set in holdouts:
 #save data to csv: 
 
 results_path = f'experiment_data/{dataset}{q_str}'
+results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
 if train_miss != 0 or test_miss != 0: 
     results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
 if not os.path.exists(results_path):
