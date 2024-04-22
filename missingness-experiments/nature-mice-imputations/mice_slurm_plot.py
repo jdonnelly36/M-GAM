@@ -24,9 +24,14 @@ from cycler import cycler
 plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#808080'])
 # plt.rcParams.update({'font.size': 16})
 
-dataset = 'BREAST_CANCER'
-metric = 'auc'
-filetype = 'pdf'
+dataset = 'FICO'
+metric = 'acc'
+filetype = 'png'
+
+overall_mi_intercept = False
+overall_mi_ixn = False
+specific_mi_intercept = True
+specific_mi_ixn = True
 
 DATASET_NAME = {
     'FICO': 'FICO',
@@ -62,6 +67,8 @@ quantile_addition = ''
 #load data files from csv: 
 
 res_dir = f'experiment_data/{dataset}'
+res_dir = f'{res_dir}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
+
 if train_miss != 0 or test_miss != 0: 
     res_dir = f'{res_dir}/train_{train_miss}/test_{test_miss}'
 if num_quantiles != 8: 
@@ -102,10 +109,11 @@ test_auc_indicator = test_auc_indicator[:, no_timeouts_indicator]
 # test_auc_no_missing = test_auc_no_missing[:, no_timeouts_no_missing]
 
 fig_dir = f'./figs/{dataset}/'
+fig_dir = f'{fig_dir}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}/'
 if train_miss != 0 or test_miss != 0: 
-    fig_dir = f'{fig_dir}/train_{train_miss}/test_{test_miss}/'
+    fig_dir = f'{fig_dir}train_{train_miss}/test_{test_miss}/'
 if num_quantiles != 8: 
-     fig_dir = f'{fig_dir}/q{num_quantiles}/'
+     fig_dir = f'{fig_dir}q{num_quantiles}/'
 if not os.path.exists(fig_dir):
     os.makedirs(fig_dir)
 
@@ -229,7 +237,7 @@ uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
 plt.xlabel('# Nonzero Coefficients')
 plt.ylabel(f'Test {METRIC_NAME[metric]}')
 plt.legend()
-plt.xlim(0,62.5)
+plt.xlim(0,52.5)
 # plt.ylim(0.9, 2.2)
 plt.savefig(f'{fig_dir}mice_slurm_test_{metric}.{filetype}')
 
