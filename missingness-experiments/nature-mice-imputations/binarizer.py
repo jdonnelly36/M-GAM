@@ -267,19 +267,21 @@ class Binarizer:
                     new_col_name = f'{c} == {v}'
                     new_row_train = np.zeros(n_train)
                     new_row_train[self._nansafe_equals(train_df[c],v)] = 1
-                    train_binned[new_col_name] = new_row_train
-                    train_augmented_binned[new_col_name] = new_row_train
                     new_row_test = np.zeros(n_test)
                     new_row_test[self._nansafe_equals(test_df[c],v)] = 1
-                    test_binned[new_col_name] = new_row_test
-                    test_augmented_binned[new_col_name] = new_row_test
+                    if new_row_train.sum() > 0 or new_row_test.sum() > 0: #has missingness
+                        train_binned[new_col_name] = new_row_train
+                        train_augmented_binned[new_col_name] = new_row_train
+                        test_binned[new_col_name] = new_row_test
+                        test_augmented_binned[new_col_name] = new_row_test
                 missing_row_train[self._nansafe_equals(train_df[c],v)] = 1
                 missing_row_test[self._nansafe_equals(test_df[c],v)] = 1
             if self.overall_mi_intercept: 
-                train_binned[missing_col_name] = missing_row_train
-                train_augmented_binned[missing_col_name] = missing_row_train
-                test_binned[missing_col_name] = missing_row_test
-                test_augmented_binned[missing_col_name] = missing_row_test
+                if missing_ixn_row_train.sum() > 0 or missing_ixn_row_test.sum() > 0: #has missingness
+                    train_binned[missing_col_name] = missing_row_train
+                    train_augmented_binned[missing_col_name] = missing_row_train
+                    test_binned[missing_col_name] = missing_row_test
+                    test_augmented_binned[missing_col_name] = missing_row_test
         for c in self.numerical_cols:
             if c == self.label:
                 continue
@@ -342,12 +344,14 @@ class Binarizer:
                                 new_row_train = np.zeros(n_train)
                                 new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] <= v)] = 1
                                 new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner].isin(self.miss_vals))] = 0
-                                train_augmented_binned[new_col_name] = new_row_train
         
                                 new_row_test = np.zeros(n_test)
                                 new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] <= v)] = 1
                                 new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner].isin(self.miss_vals))] = 0
-                                test_augmented_binned[new_col_name] = new_row_test
+
+                                if new_row_train.sum() > 0 or new_row_test.sum() > 0: #has missingness
+                                    train_augmented_binned[new_col_name] = new_row_train
+                                    test_augmented_binned[new_col_name] = new_row_test
 
                             missing_ixn_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] <= v)] = 1
                             missing_ixn_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] <= v)] = 1
@@ -355,8 +359,9 @@ class Binarizer:
                             missing_ixn_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner].isin(self.miss_vals))] = 0
 
                         if self.overall_mi_ixn: 
-                            train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
-                            test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                            if (missing_ixn_row_train.sum() > 0 or missing_ixn_row_test.sum() > 0): #has missingness
+                                train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                                test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
             for c_inner in self.categorical_cols:
                 for v in train_df[c_inner].unique():
                     if (v in self.miss_vals) or c_inner == self.label:
@@ -372,12 +377,14 @@ class Binarizer:
                                 new_row_train = np.zeros(n_train)
                                 new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] == v)] = 1
                                 new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner].isin(self.miss_vals))] = 0
-                                train_augmented_binned[new_col_name] = new_row_train
         
                                 new_row_test = np.zeros(n_test)
                                 new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] == v)] = 1
                                 new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner].isin(self.miss_vals))] = 0
-                                test_augmented_binned[new_col_name] = new_row_test
+
+                                if new_row_train.sum() > 0 or new_row_test.sum() > 0: #has missingness
+                                    train_augmented_binned[new_col_name] = new_row_train
+                                    test_augmented_binned[new_col_name] = new_row_test
 
                             missing_ixn_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] == v)] = 1
                             missing_ixn_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] == v)] = 1
@@ -385,8 +392,9 @@ class Binarizer:
                             missing_ixn_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner].isin(self.miss_vals))] = 0
 
                         if self.overall_mi_ixn: 
-                            train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
-                            test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+                            if (missing_ixn_row_train.sum() > 0 or missing_ixn_row_test.sum() > 0):
+                                train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
+                                test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
         train_binned[self.label] = train_df[self.label]
         test_binned[self.label] = test_df[self.label]
         train_no_missing[self.label] = train_df[self.label]
