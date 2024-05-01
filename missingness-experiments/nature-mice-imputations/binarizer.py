@@ -401,12 +401,25 @@ class Binarizer:
                             if (missing_ixn_row_train.sum() > 0 or missing_ixn_row_test.sum() > 0):
                                 train_augmented_binned[missing_ixn_name] = missing_ixn_row_train
                                 test_augmented_binned[missing_ixn_name] = missing_ixn_row_test
+
+        # get feature clusters
+        aug_clusters = {}
+        bin_clusters = {}
+        no_clusters = {}
+        for c in train_df.columns:
+            #TODO: test clustering system, define behaviour in cases of redundant column names
+            aug_clusters[c] = [i for i, element in enumerate(train_augmented_binned) if element.startswith(c+' <') or element.startswith(c+' =')]
+            bin_clusters[c] = [i for i, element in enumerate(train_binned) if element.startswith(c+' <') or element.startswith(c+' =')]    
+            no_clusters[c] = [i for i, element in enumerate(train_no_missing) if element.startswith(c+' <') or element.startswith(c+' =')]
+        
+
         train_binned[self.label] = train_df[self.label]
         test_binned[self.label] = test_df[self.label]
         train_no_missing[self.label] = train_df[self.label]
         test_no_missing[self.label] = test_df[self.label]
         train_augmented_binned[self.label] = train_df[self.label]
         test_augmented_binned[self.label] = test_df[self.label]
+
         return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != self.label]].values, 
                 pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != self.label]].values, 
                 pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != self.label]].values,
@@ -419,4 +432,5 @@ class Binarizer:
                 pd.DataFrame(test_no_missing)[self.label].values, 
                 pd.DataFrame(test_binned)[self.label].values, 
                 pd.DataFrame(test_augmented_binned)[self.label].values, 
+                no_clusters, bin_clusters, aug_clusters
         )

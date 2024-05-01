@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=adult # Job name
+#SBATCH --job-name=fico # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=adult_%j.out
+#SBATCH --output=fico_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -19,12 +19,12 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import eval_model, get_train_test_binarized
+from mice_utils import eval_model, eval_model_by_clusters
 from binarizer import Binarizer
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'ADULT'
+dataset = 'FICO'
 train_miss = 0
 test_miss = train_miss
 
@@ -32,9 +32,9 @@ metric = 'acc'
 
 print(f'{num_quantiles}')
 
-overall_mi_intercept = True#False
+overall_mi_intercept = True
 overall_mi_ixn = True#False
-specific_mi_intercept = False#True
+specific_mi_intercept = False
 specific_mi_ixn = False#True
 
 print(f'{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}')
@@ -47,6 +47,7 @@ imputations = np.arange(10)
 mice_validation_metric = metric
 s_size=100
 np.random.seed(0)
+use_distinct = True
 ###################
 
 ### basic hyperparameter processing ###
@@ -91,7 +92,11 @@ def prefix_pre_imputed(dataset):
         missing_prop = int(dataset[dataset.rfind('_')+1:])/100
         overall_dataset = dataset[:dataset.rfind('_')]
         return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
-    return f'{standard_prefix}/{dataset}/'
+    prefix = f'{standard_prefix}/{dataset}/'
+    if use_distinct and 'FICO' in dataset or 'SYNTHETIC' in dataset: 
+        return f'{prefix}distinct-missingness/'
+    else: 
+        return prefix
 
 ###############################################
 
@@ -117,6 +122,11 @@ sparsity_aug = np.zeros((len(holdouts), len(lambda_grid[0])))
 sparsity_indicator = np.zeros((len(holdouts), len(lambda_grid[0])))
 sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
+#feature sparsity
+features_aug = np.zeros((len(holdouts), len(lambda_grid[0])))
+features_indicator = np.zeros((len(holdouts), len(lambda_grid[0])))
+features_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
+
 for holdout_set in holdouts: 
     for val_set in validations: 
         train = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_train_{val_set}{miss_str}.csv')
@@ -127,7 +137,7 @@ for holdout_set in holdouts:
 
         categorical = ['workclass', 'education', 'marital-status', 'occupation', 'relationship', 'native-country', 'race'] if 'ADULT' in dataset else []
         encoder = Binarizer(quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1], label=label, 
-                            miss_vals=[-7. -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
+                            miss_vals=[-7, -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
                             overall_mi_intercept = overall_mi_intercept, overall_mi_ixn = overall_mi_ixn, 
                             specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn, 
                             numerical_cols = [col for col in train.columns if col not in categorical], 
@@ -207,7 +217,7 @@ for holdout_set in holdouts:
 
         (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
         y_train_no, y_train_ind, y_train_aug, 
-        y_test_no, y_test_ind, y_test_aug) = encoder.binarize_and_augment(
+        y_test_no, y_test_ind, y_test_aug, cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
             pd.concat([train, val]), test)
 
         np.savetxt("no_imp_no_missingness.csv", train_no, delimiter=',')
@@ -217,24 +227,26 @@ for holdout_set in holdouts:
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)
-        (_, train_auc_no_missing[holdout_set], 
-         _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = eval_model(
-            model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric]
+        (_, train_auc_no_missing[holdout_set], _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set], 
+         features_no_missing[holdout_set]) = eval_model_by_clusters(
+            model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric], cluster_no
             )
         
         model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_indicator[holdout_set], 
-         _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = eval_model(
-            model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric]
+         _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set],
+         features_indicator[holdout_set]) = eval_model_by_clusters(
+            model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric], cluster_ind
             )
         
         model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
                                     lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=s_size)
         (_, train_auc_aug[holdout_set], 
-         _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = eval_model(
+         _, test_auc_aug[holdout_set], sparsity_aug[holdout_set],
+         features_aug[holdout_set]) = eval_model_by_clusters(
             model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0], 
-            METRIC_FN[metric]
+            METRIC_FN[metric], cluster_aug
             )
 
 #save data to csv: 
@@ -264,6 +276,9 @@ np.savetxt(f'{results_path}/sparsity_aug.csv', sparsity_aug)
 np.savetxt(f'{results_path}/sparsity_indicator.csv', sparsity_indicator)
 np.savetxt(f'{results_path}/sparsity_no_missing.csv',sparsity_no_missing)
 
+np.savetxt(f'{results_path}/features_aug.csv', features_aug)
+np.savetxt(f'{results_path}/features_indicator.csv', features_indicator)
+np.savetxt(f'{results_path}/features_no_missing.csv',features_no_missing)
 
 #can also try pickle file of all hyperparameters, and save to a folder with corresponding hash
 
