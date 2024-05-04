@@ -1,6 +1,22 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+import time
+
+sys.path.append('../smim_code/')
+from imputation_models import MIM
+
+def get_smim_dataset(X_train, y_train, X_test, alpha=0.05):
+    # Performance for SMIM
+    smim = MIM(features="dynamic", alpha=alpha)
+
+    start = time.time()
+    train_mask_feats = smim.fit_transform(X_train, y_train)
+    test_mask_feats = smim.transform(X_test)
+    end = time.time()
+
+    return train_mask_feats, test_mask_feats, end-start
 
 """
 Accesses files from the imputation data folder structure. 

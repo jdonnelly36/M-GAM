@@ -462,6 +462,17 @@ class DataLoaderBreast_MAR_50(DataLoaderBreast_MAR):
 
 dataloaders["BREAST_CANCER_MAR_50"] = DataLoaderBreast_MAR_50
 
+class DataLoaderPharyngitis(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/PHARYNGITIS")
+        self.outcome_col = "radt"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["PHARYNGITIS"] = DataLoaderPharyngitis
+
 class DataLoaderFico(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
