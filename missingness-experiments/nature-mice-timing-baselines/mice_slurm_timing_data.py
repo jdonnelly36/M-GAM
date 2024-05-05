@@ -34,7 +34,8 @@ import xgboost as xgb
 from datetime import date
 
 sys.path.append('../nature-mice-imputations/')
-from mice_utils import get_smim_dataset, return_imputation, binarize_according_to_train, eval_model, get_train_test_binarized, binarize_and_augment, errors
+from mice_utils import get_smim_dataset, return_imputation, eval_model, get_train_test_binarized
+from binarizer import Binarizer
 
 print("Started, importing")
 #hyperparameters (TODO: set up with argparse)
@@ -192,6 +193,7 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
                     except Exception as e:
                         print("Acceptable error: ", repr(e))
                     
+                    print(f"clf.cv_results_: {clf.cv_results_}")
                     fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
 
                     try:
@@ -229,7 +231,6 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
                     pd.DataFrame(metric_dict).to_csv(f'./parallelized_results/tmp_multi_{date.today()}_iter_{slurm_iter}_{imputation_method}_imp_{imputations}_imp_all_50_max_coef.csv',index=False)
             #except:
             #    print(f"Except for holdout {holdout_set}")
-            #    continue
     return pd.DataFrame(metric_dict)
 
 def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
@@ -264,6 +265,12 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
             else:
                 label = train.columns[-1]
                 predictors = train.columns[:-1]
+            encoder = Binarizer(quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1], label=label, 
+                                miss_vals=[-7, -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
+                                overall_mi_intercept = False, overall_mi_ixn = False, 
+                                specific_mi_intercept = True, specific_mi_ixn = True, 
+                                numerical_cols = [col for col in train.columns], 
+                                categorical_cols= []) 
 
             ###########################
             ### Imputation approach ###
@@ -278,7 +285,7 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
                 # one possible TODO is to select using 5-fold cross validation
                 # (this may require verifying whether all 5 train/val splits use the same imputation)
                 # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
-            fit_times = []
+            #fit_times = []
             for imputation in range(imputations):
                 X_train, X_val, X_test, y_train, y_val, y_test = get_train_test_binarized(
                     label, predictors, train, test, val, num_quantiles, 
@@ -328,7 +335,7 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
                 print("train_probs.shape", train_probs.shape)
                 imputation_train_probs[imputation] = train_probs[best_lambda]
                 imputation_test_probs[imputation] = test_probs[best_lambda]
-                fit_times.append(fit_time)
+                #fit_times.append(fit_time)
                 
 
             # calculate ensembled metric across all imputations: 
@@ -362,10 +369,7 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
 
             (train_no_overall, train_ind_overall, train_aug_overall, test_no, test_ind, test_aug, 
             y_train_no_overall, y_train_ind_overall, y_train_aug_overall, 
-            y_test_no, y_test_ind, y_test_aug) = binarize_and_augment(
-                pd.concat([train, val]), test, np.linspace(0, 1, num_quantiles + 2)[1:-1], label, 
-                na_check=na_check#, combined_col=True
-                )
+            y_test_no, y_test_ind, y_test_aug, cluster_no, cluster_ind, cluster_aug)= encoder.binarize_and_augment(pd.concat([train, val]), test)
             print("train_no_overall.shape", train_no_overall.shape)
             print("train_ind_overall.shape", train_ind_overall.shape)
             print("train_aug_overall.shape", train_aug_overall.shape)
@@ -421,37 +425,37 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
 
             # TODO: Need to grab best lambda via CV, then eval that guy
             start_time = timeit.default_timer()
-            model_no = fastsparsegams.fit(train_no_overall, y_train_no_overall, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
+            model_no = fastsparsegams.fit(train_no_overall, y_train_no_overall, loss="Exponential", algorithm="CDPSI", lambda_grid=[[lambda_grid[0][best_lam_no]]], 
                                         num_lambda=None, num_gamma=None, max_support_size=max_support_size)
             fit_time_no = timeit.default_timer() - start_time
             (train_probs, _, test_probs, _, _) = eval_model(
-                model_no, train_no_overall, test_no, y_train_no_overall, y_test_no, lambda_grid[0], METRIC_FN[metric]
+                model_no, train_no_overall, test_no, y_train_no_overall, y_test_no, [lambda_grid[0][best_lam_no]], METRIC_FN[metric]
             )
-            train_probs = train_probs[best_lam_no]
-            test_probs = test_probs[best_lam_no]
+            train_probs = train_probs[0]
+            test_probs = test_probs[0]
             log_metric_vals(train_probs, test_probs, y_train_no_overall, y_test_no, fit_time_no, 'GAM_no_missing')
             
             start_time = timeit.default_timer()
-            model_ind = fastsparsegams.fit(train_ind_overall, y_train_ind_overall, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
+            model_ind = fastsparsegams.fit(train_ind_overall, y_train_ind_overall, loss="Exponential", algorithm="CDPSI", lambda_grid=[[lambda_grid[0][best_lam_ind]]], 
                                         num_lambda=None, num_gamma=None, max_support_size=max_support_size)
             fit_time_ind = timeit.default_timer() - start_time
             (train_probs, _, test_probs, _, _) = eval_model(
-                model_ind, train_ind_overall, test_ind, y_train_ind_overall, y_test_ind, lambda_grid[0], METRIC_FN[metric]
+                model_ind, train_ind_overall, test_ind, y_train_ind_overall, y_test_ind, [lambda_grid[0][best_lam_ind]], METRIC_FN[metric]
                 )
-            train_probs = train_probs[best_lam_ind]
-            test_probs = test_probs[best_lam_ind]
+            train_probs = train_probs[0]
+            test_probs = test_probs[0]
             log_metric_vals(train_probs, test_probs, y_train_ind_overall, y_test_ind, fit_time_ind, 'GAM_ind')
             
             start_time = timeit.default_timer()
             model_aug = fastsparsegams.fit(train_aug_overall, y_train_aug_overall, loss="Exponential", algorithm="CDPSI", 
-                                        lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=max_support_size)
+                                        lambda_grid=[[lambda_grid[0][best_lam_aug]]], num_lambda=None, num_gamma=None, max_support_size=max_support_size)
             fit_time_aug = timeit.default_timer() - start_time
             (train_probs, _, test_probs, _, _) = eval_model(
-                model_aug, train_aug_overall, test_aug, y_train_aug_overall, y_test_aug, lambda_grid[0], 
+                model_aug, train_aug_overall, test_aug, y_train_aug_overall, y_test_aug, [lambda_grid[0][best_lam_aug]], 
                 METRIC_FN[metric]
                 )
-            train_probs = train_probs[best_lam_aug]
-            test_probs = test_probs[best_lam_aug]
+            train_probs = train_probs[0]
+            test_probs = test_probs[0]
             log_metric_vals(train_probs, test_probs, y_train_aug_overall, y_test_aug, fit_time_aug, 'GAM_aug')
             if slurm_iter is None:
                 pd.DataFrame(metric_dict).to_csv(f'./full_baseline_results_many_clf_tmp_gam_{date.today()}_10_holdouts_{dataset_name}_{imputations}_imp_{imputation_method}_50_max_coef.csv',index=False)
@@ -476,11 +480,15 @@ if __name__ == '__main__':
     ]
 
     param_grids = [
-        {'C':[0.01, 0.1, 1, 10], 'penalty': ['l2'], 'max_iter': [5_000], 'tol': [1e-3]},#, 'elasticnet')},
+        {'C':[0.01, 0.1, 1, 10], 'penalty': ['l2'], 'max_iter': [5_000], 'tol': [1e-2]},#, 'elasticnet')},
         {'n_estimators':[25, 50, 100, 200], 'criterion':("gini", "entropy")},
-        {'n_estimators':[10, 25, 50, 100, 200]},
+        {'n_estimators':[10, 25, 50, 100, 200], 'algorithm': ['SAMME']},
         {'max_depth':[3, 5, 7, 9, None], 'criterion':("gini", "entropy")},
-        {'hidden_layer_sizes':[(50,), (100,), (200,), (50, 50), (50, 100), (100, 100), (100, 200), (200, 200)]},
+        {
+            'hidden_layer_sizes':[(50,), (100,), (200,), (50, 50), (50, 100), (100, 100), (100, 200), (200, 200)],
+            'tol': [1e-3],
+            'max_iter': [1000]
+        },
         {
             'n_estimators':[100, 500, 1000],
             'gamma':[0, 0.1],
@@ -508,7 +516,7 @@ if __name__ == '__main__':
     
 
     for imputation_method in ['MICE']:#, 'Mean', 'MissForest', 'MIWAE', 'GAIN']:
-        for ds_name in ['CKD', 'HEART_DISEASE', 'HORSE_COLIC']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
+        for ds_name in ['CKD', 'HEART_DISEASE']:#, 'HORSE_COLIC']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
             print(f"Running for {imputation_method}, {ds_name}")
             #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
             if False and 'FICO' == ds_name:
@@ -559,6 +567,8 @@ if __name__ == '__main__':
                     if overall_df is None:
                         overall_df = pd.concat([res_df, gam_res_df], axis=0)
                     else:
+                        print("res_df: ", res_df)
+                        print("overall_df: ", overall_df)
                         overall_df = pd.concat([overall_df, res_df, gam_res_df], axis=0)
 
                     if slurm_iter is None:
