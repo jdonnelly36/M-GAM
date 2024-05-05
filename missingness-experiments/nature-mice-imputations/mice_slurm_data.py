@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=fico # Job name
+#SBATCH --job-name=data # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=fico_%j.out
+#SBATCH --output=logs/data_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -19,8 +19,15 @@ import pandas as pd
 from sklearn import metrics
 import fastsparsegams
 import matplotlib.pyplot as plt
-from mice_utils import eval_model, get_train_test_binarized
+from mice_utils import eval_model, return_imputation
 from binarizer import Binarizer
+### Constants
+M_GAM_IMPUTERS = {
+    None: lambda x : 0, # corresponds to encoding missing values as False
+    'mean': np.mean,
+    'median': np.median,
+    'mice': None #don't use a function, use the imputed df 
+}
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
@@ -30,14 +37,19 @@ test_miss = train_miss
 
 metric = 'acc'
 
-print(f'{num_quantiles}')
-
 overall_mi_intercept = False
 overall_mi_ixn = False
 specific_mi_intercept = True
 specific_mi_ixn = True
 
-print(f'{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}')
+#we can impute in addition to using indicators. 
+mgam_imputer = None
+mice_augmentation_level = 1 # 0 for no missingness features, 1 for indicators, 2 for interactions
+
+print('--- Hyperparameter Settings ---')
+print(f'Dataset: {dataset}')
+print(f'Quantiles: {num_quantiles}')
+print(f'Distinctness pattern: (overall intercept, overall ixn, specific intercept, specific interaction): ({overall_mi_intercept}, {overall_mi_ixn}, {specific_mi_intercept}, {specific_mi_ixn}')
 
 ### Immutable ###
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
@@ -124,13 +136,18 @@ for holdout_set in holdouts:
         test = pd.read_csv(prefix_pre_imputed(dataset) + f'holdout_{holdout_set}{miss_str}.csv')
         label = train.columns[-1]
         predictors = train.columns[:-1]
+        categorical_cols = [] #TODO: enter categorical cols
+        numerical_cols = [c for c in predictors if c not in categorical_cols]
 
         encoder = Binarizer(quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1], label=label, 
                             miss_vals=[-7. -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
                             overall_mi_intercept = overall_mi_intercept, overall_mi_ixn = overall_mi_ixn, 
-                            specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn) 
+                            specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn, 
+                            categorical_cols = categorical_cols, numerical_cols = numerical_cols) 
         # TODO: encode miss_vals to the specific set of missingness values for this dataset, 
         # or add functionality to prune out non-occurring missingness values in binarizer
+        # TODO: move outside of this loop; all we need from this loop is the label and predictors, which 
+        # are constant for the dataset anyways
 
         ###########################
         ### Imputation approach ###
@@ -150,10 +167,17 @@ for holdout_set in holdouts:
             # (this may require verifying whether all 5 train/val splits use the same imputation)
             # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
         for imputation_idx, imputation in enumerate(imputations):
-            X_train, X_val, X_test, y_train, y_val, y_test = get_train_test_binarized(
-                label, predictors, train, test, val, num_quantiles, 
+            train_i, val_i, test_i = return_imputation(
                 path_to_imputed(dataset, holdout_set, val_set, imputation), 
-                validation=True) #decides quantiles using train and val, not test
+                label, predictors, train, test, val)
+            
+            imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train_i, val_i]), test_i, validation_size = val_i.shape[0])
+            X_train = imputed_and_binned_data[mice_augmentation_level].copy()
+            X_val = imputed_and_binned_data[mice_augmentation_level + 3].copy()
+            X_test = imputed_and_binned_data[mice_augmentation_level + 6].copy()
+            y_train = imputed_and_binned_data[9]
+            y_val = imputed_and_binned_data[12]
+            y_test = imputed_and_binned_data[15]
             
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
                                        lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, 
@@ -173,9 +197,13 @@ for holdout_set in holdouts:
             #now that we know the best lambda for each imputation, we can go through 
             # and find the probabilities for each imputation, while training on the full train set, 
             # using these validation-optimal lambdas.
-            X_train, X_test, y_train, y_test = get_train_test_binarized(
-                label, predictors, train, test, val, num_quantiles, 
-                path_to_imputed(dataset, holdout_set, val_set, imputation))
+            imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train_i, val_i]), test_i, imputed_train_df = pd.concat([train_i, val_i]), imputed_test_df = test_i)
+
+            # grab the level of augmentation from the encoder tuple
+            X_train = imputed_and_binned_data[mice_augmentation_level]
+            X_test = imputed_and_binned_data[mice_augmentation_level + 3]
+            y_train = imputed_and_binned_data[6]
+            y_test = imputed_and_binned_data[9]
 
             model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
                                        lambda_grid=lambda_grid, 
@@ -204,7 +232,7 @@ for holdout_set in holdouts:
 
         (train_no, train_ind, train_aug, test_no, test_ind, test_aug, 
         y_train_no, y_train_ind, y_train_aug, 
-        y_test_no, y_test_ind, y_test_aug) = encoder.binarize_and_augment(
+        y_test_no, y_test_ind, y_test_aug, _, _, _) = encoder.binarize_and_augment(
             pd.concat([train, val]), test)
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
@@ -239,6 +267,8 @@ if not os.path.exists(results_path):
     os.makedirs(results_path)
 
 MICE_results_path = f'{results_path}/{s_size}'
+if mice_augmentation_level > 0: 
+    MICE_results_path += f'/{mice_augmentation_level}'
 if not os.path.exists(MICE_results_path):
     os.makedirs(MICE_results_path)
 
