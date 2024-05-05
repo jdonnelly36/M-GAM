@@ -30,18 +30,45 @@ class Binarizer:
             if c == self.label:
                 continue
             val = self.imputer(train_df[c][~train_df[c].isin(self.miss_vals)])
-            train_df[c][train_df[c].isin(self.miss_vals)] = val
-            test_df[c][test_df[c].isin(self.miss_vals)] = val
+            train_df.loc[train_df[c].isin(self.miss_vals), c] = val
+            test_df.loc[test_df[c].isin(self.miss_vals), c] = val
         return train_df, test_df
 
-    def binarize_and_augment(self, train_df, test_df, imputed_train_df = None, imputed_test_df = None):
+    def binarize_and_augment(self, train_df, test_df, imputed_train_df = None, 
+                             imputed_test_df = None, validation_size = 0):
         if self.imputer is not None:
             imputed_train_df, imputed_test_df = self._impute_single_val(train_df, test_df)
-            return self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
+            return_tuple = self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
         elif imputed_train_df is not None and imputed_test_df is not None:
-            return self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
-
-        return self._binarize(train_df, test_df)
+            return_tuple = self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
+        else: 
+            return_tuple = self._binarize(train_df, test_df)
+        
+        if validation_size == 0: 
+            return return_tuple
+        else:
+            train_no_missing, train_binned, train_augmented_binned, test_no_missing, test_binned, test_augmented_binned, train_labels, train_labels_binned, train_labels_augmented_binned, test_labels, test_labels_binned, test_labels_augmented_binned, no_clusters, bin_clusters, aug_clusters = return_tuple
+            n_train = train_no_missing.shape[0] - validation_size
+            val_no_missing = train_no_missing[n_train:]
+            val_binned = train_binned[n_train:]
+            val_augmented_binned = train_augmented_binned[n_train:]
+            val_labels = train_labels[n_train:]
+            val_labels_binned = train_labels_binned[n_train:]
+            val_labels_augmented_binned = train_labels_augmented_binned[n_train:]
+            train_no_missing = train_no_missing[:n_train]
+            train_binned = train_binned[:n_train]
+            train_augmented_binned = train_augmented_binned[:n_train]
+            train_labels = train_labels[:n_train]
+            train_labels_binned = train_labels_binned[:n_train]
+            train_labels_augmented_binned = train_labels_augmented_binned[:n_train]
+            return (train_no_missing, train_binned, train_augmented_binned, 
+                    val_no_missing, val_binned, val_augmented_binned, 
+                    test_no_missing, test_binned, test_augmented_binned, 
+                    train_labels, train_labels_binned, train_labels_augmented_binned,
+                    val_labels, val_labels_binned, val_labels_augmented_binned,
+                    test_labels, test_labels_binned, test_labels_augmented_binned,
+                    no_clusters, bin_clusters, aug_clusters)
+    
   
     def _imputed_binarize(self, train_df, test_df, imputed_train_df, imputed_test_df):
         n_train, _ = train_df.shape
@@ -91,7 +118,7 @@ class Binarizer:
 
                     new_row_train = np.zeros(n_train)
                     new_row_train[train_df[c] <= v] = 1
-                    new_row_train[train_df[c].isin(self.miss_vals)] = imputed_train_df[c][train_df[c].isin(self.miss_vals)]
+                    new_row_train[train_df[c].isin(self.miss_vals)] = imputed_train_df[c][train_df[c].isin(self.miss_vals)] <= v
 
                     train_no_missing[new_col_name] = new_row_train
                     train_binned[new_col_name] = new_row_train
@@ -99,7 +126,7 @@ class Binarizer:
                     
                     new_row_test = np.zeros(n_test)
                     new_row_test[test_df[c] <= v] = 1
-                    new_row_test[test_df[c].isin(self.miss_vals)] = imputed_test_df[c][test_df[c].isin(self.miss_vals)]
+                    new_row_test[test_df[c].isin(self.miss_vals)] = imputed_test_df[c][test_df[c].isin(self.miss_vals)] <= v
                     test_no_missing[new_col_name] = new_row_test
                     test_binned[new_col_name] = new_row_test
                     test_augmented_binned[new_col_name] = new_row_test
@@ -114,14 +141,14 @@ class Binarizer:
 
                     new_row_train = np.zeros(n_train)
                     new_row_train[train_df[c] == v] = 1
-                    new_row_train[train_df[c].isin(self.miss_vals)] = imputed_train_df[c][train_df[c].isin(self.miss_vals)]
+                    new_row_train[train_df[c].isin(self.miss_vals)] = imputed_train_df[c][train_df[c].isin(self.miss_vals)] == v
                     train_no_missing[new_col_name] = new_row_train
                     train_binned[new_col_name] = new_row_train
                     train_augmented_binned[new_col_name] = new_row_train
                     
                     new_row_test = np.zeros(n_test)
                     new_row_test[test_df[c] == v] = 1
-                    new_row_test[test_df[c].isin(self.miss_vals)] = imputed_test_df[c][test_df[c].isin(self.miss_vals)]
+                    new_row_test[test_df[c].isin(self.miss_vals)] = imputed_test_df[c][test_df[c].isin(self.miss_vals)] == v
                     test_no_missing[new_col_name] = new_row_test
                     test_binned[new_col_name] = new_row_test
                     test_augmented_binned[new_col_name] = new_row_test
