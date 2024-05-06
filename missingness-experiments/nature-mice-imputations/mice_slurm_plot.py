@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=missing_data # Job name
+#SBATCH --job-name=plot # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=missing_data_%j.out
+#SBATCH --output=logs/plot_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -34,7 +34,7 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 mgam_imputer = None
-mice_augmentation_level = 1 # 0 for no missingness features, 1 for indicators, 2 for interactions
+mice_augmentation_level = 2 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 DATASET_NAME = {
     'FICO': 'FICO',
