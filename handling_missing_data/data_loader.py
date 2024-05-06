@@ -380,7 +380,7 @@ class DataLoaderBreast(_DataLoaderBase):
 
     def __init__(self):
         super().__init__()
-        self.datadir = "DATA/BREAST_CANCER"
+        self.datadir = "DATA_REDUCED/BREAST_CANCER"
         self.outcome_col = "Overall Survival Status"
 
     def extract_cat_vars(self, one_hot: bool) -> tuple[list[int], list[int]]:
@@ -404,6 +404,51 @@ class DataLoaderBreast(_DataLoaderBase):
 
 
 dataloaders["BREAST_CANCER"] = DataLoaderBreast
+
+class DataLoaderBreast_25(DataLoaderBreast):
+    onehot_encoder = None
+    ordinal_encoder = None
+    encoded_colnames = None
+    cat_colnames = None
+    cols = None
+    cols_path = "Breast_cancer_cols.json"
+    factor_levels_path = "Breast_factor_levels.json"
+
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/BREAST_CANCER_0.25"
+        self.outcome_col = "Overall Survival Status"
+dataloaders["BREAST_CANCER_0.25"] = DataLoaderBreast_25
+
+class DataLoaderBreast_50(DataLoaderBreast):
+    onehot_encoder = None
+    ordinal_encoder = None
+    encoded_colnames = None
+    cat_colnames = None
+    cols = None
+    cols_path = "Breast_cancer_cols.json"
+    factor_levels_path = "Breast_factor_levels.json"
+
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/BREAST_CANCER_0.5"
+        self.outcome_col = "Overall Survival Status"
+dataloaders["BREAST_CANCER_0.5"] = DataLoaderBreast_50
+
+class DataLoaderBreast_75(DataLoaderBreast):
+    onehot_encoder = None
+    ordinal_encoder = None
+    encoded_colnames = None
+    cat_colnames = None
+    cols = None
+    cols_path = "Breast_cancer_cols.json"
+    factor_levels_path = "Breast_factor_levels.json"
+
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/BREAST_CANCER_0.75"
+        self.outcome_col = "Overall Survival Status"
+dataloaders["BREAST_CANCER_0.75"] = DataLoaderBreast_75
 
 class DataLoaderBreast_MAR(_DataLoaderBase):
     onehot_encoder = None
@@ -473,10 +518,43 @@ class DataLoaderPharyngitis(_DataLoaderBase):
 
 dataloaders["PHARYNGITIS"] = DataLoaderPharyngitis
 
+class DataLoaderPharyngitis_25(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/PHARYNGITIS_0.25")
+        self.outcome_col = "radt"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["PHARYNGITIS_0.25"] = DataLoaderPharyngitis_25
+
+class DataLoaderPharyngitis_50(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/PHARYNGITIS_0.5")
+        self.outcome_col = "radt"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["PHARYNGITIS_0.5"] = DataLoaderPharyngitis_50
+
+class DataLoaderPharyngitis_75(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/PHARYNGITIS_0.75")
+        self.outcome_col = "radt"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["PHARYNGITIS_0.75"] = DataLoaderPharyngitis_75
+
 class DataLoaderFico(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/FICO")
+        self.datadir = ("DATA_REDUCED/FICO")
         self.outcome_col = "PoorRiskPerformance"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
@@ -484,10 +562,43 @@ class DataLoaderFico(_DataLoaderBase):
 
 dataloaders["FICO"] = DataLoaderFico
 
+class DataLoaderFico_25(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/FICO_0.25")
+        self.outcome_col = "PoorRiskPerformance"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["FICO_0.25"] = DataLoaderFico_25
+
+class DataLoaderFico_50(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/FICO_0.5")
+        self.outcome_col = "PoorRiskPerformance"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["FICO_0.5"] = DataLoaderFico_50
+
+class DataLoaderFico_75(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/FICO_0.75")
+        self.outcome_col = "PoorRiskPerformance"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+        
+dataloaders["FICO_0.75"] = DataLoaderFico_75
+
 class DataLoaderFico_MAR(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/FICO_MAR")
+        self.datadir = ("DATA_REDUCED/FICO_MAR")
         self.outcome_col = "PoorRiskPerformance"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
@@ -498,25 +609,58 @@ dataloaders["FICO_MAR"] = DataLoaderFico_MAR
 class DataLoaderFico_MAR_25(DataLoaderFico_MAR): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/FICO_MAR/0.25")
+        self.datadir = ("DATA_REDUCED/FICO_MAR/0.25")
 dataloaders["FICO_MAR_25"] = DataLoaderFico_MAR_25
 
 class DataLoaderFico_MAR_50(DataLoaderFico_MAR): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/FICO_MAR/0.5")
+        self.datadir = ("DATA_REDUCED/FICO_MAR/0.5")
 dataloaders["FICO_MAR_50"] = DataLoaderFico_MAR_50
 
 class DataLoaderMIMIC(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/MIMIC")
+        self.datadir = ("DATA_REDUCED/MIMIC")
         self.outcome_col = "hospital_expire_flag"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
         return self._data_paths_natural(experiment)
 
 dataloaders["MIMIC"] = DataLoaderMIMIC
+
+class DataLoaderMIMIC_25(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/MIMIC_0.25")
+        self.outcome_col = "hospital_expire_flag"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["MIMIC_0.25"] = DataLoaderMIMIC_25
+
+class DataLoaderMIMIC_50(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/MIMIC_0.50")
+        self.outcome_col = "hospital_expire_flag"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["MIMIC_0.50"] = DataLoaderMIMIC_50
+
+class DataLoaderMIMIC_75(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/MIMIC_0.75")
+        self.outcome_col = "hospital_expire_flag"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["MIMIC_0.75"] = DataLoaderMIMIC_25
 
 class DataLoaderAPS(_DataLoaderBase): 
     def __init__(self):
@@ -540,6 +684,35 @@ class DataLoaderCKD(_DataLoaderBase):
 
 dataloaders["CKD"] = DataLoaderCKD
 
+class DataLoaderCKD_25(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/CKD_0.25")
+        self.outcome_col = "class"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["CKD_0.25"] = DataLoaderCKD_25
+
+class DataLoaderCKD_50(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/CKD_0.5")
+        self.outcome_col = "class"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["CKD_0.5"] = DataLoaderCKD_50
+
+class DataLoaderCKD_75(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/CKD_0.75")
+        self.outcome_col = "class"
+        
+dataloaders["CKD_0.75"] = DataLoaderCKD_75
 
 class DataLoaderHeartDisease(_DataLoaderBase): 
     def __init__(self):
@@ -552,6 +725,38 @@ class DataLoaderHeartDisease(_DataLoaderBase):
 
 dataloaders["HEART_DISEASE"] = DataLoaderHeartDisease
 
+class DataLoaderHEART_DISEASE_25(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/HEART_DISEASE_0.25")
+        self.outcome_col = "num"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["HEART_DISEASE_0.25"] = DataLoaderHEART_DISEASE_25
+
+class DataLoaderHEART_DISEASE_50(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/HEART_DISEASE_0.5")
+        self.outcome_col = "num"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["HEART_DISEASE_0.5"] = DataLoaderHEART_DISEASE_50
+
+class DataLoaderHEART_DISEASE_75(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA_REDUCED/HEART_DISEASE_0.75")
+        self.outcome_col = "num"
+
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+        
+dataloaders["HEART_DISEASE_0.75"] = DataLoaderHEART_DISEASE_75
 
 class DataLoaderHorseColic(_DataLoaderBase): 
     def __init__(self):
