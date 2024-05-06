@@ -52,6 +52,7 @@ print(f'Quantiles: {num_quantiles}')
 print(f'Distinctness pattern: (overall intercept, overall ixn, specific intercept, specific interaction): ({overall_mi_intercept}, {overall_mi_ixn}, {specific_mi_intercept}, {specific_mi_ixn}')
 
 ### Immutable ###
+use_distinct = True
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 holdouts = np.arange(10)
 validations = np.arange(5)
@@ -103,7 +104,11 @@ def prefix_pre_imputed(dataset):
         missing_prop = int(dataset[dataset.rfind('_')+1:])/100
         overall_dataset = dataset[:dataset.rfind('_')]
         return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
-    return f'{standard_prefix}/{dataset}/'
+    prefix = f'{standard_prefix}/{dataset}/'
+    if use_distinct and 'FICO' in dataset or 'SYNTHETIC' in dataset: 
+        return f'{prefix}distinct-missingness/'
+    else: 
+        return prefix
 
 ###############################################
 
@@ -140,7 +145,7 @@ for holdout_set in holdouts:
         numerical_cols = [c for c in predictors if c not in categorical_cols]
 
         encoder = Binarizer(quantiles = np.linspace(0, 1, num_quantiles + 2)[1:-1], label=label, 
-                            miss_vals=[-7. -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
+                            miss_vals=[-7, -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
                             overall_mi_intercept = overall_mi_intercept, overall_mi_ixn = overall_mi_ixn, 
                             specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn, 
                             categorical_cols = categorical_cols, numerical_cols = numerical_cols) 
