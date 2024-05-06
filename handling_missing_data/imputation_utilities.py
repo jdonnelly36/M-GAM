@@ -19,7 +19,7 @@ def load_imputed_data(params: ExperimentParams):
         np.array: imputed_val_x
         np.array: imputed_test_x
     """
-    imputed_dir = generate_path(params, prefix="IMPUTED_DATA")
+    imputed_dir = generate_path(params, prefix="JON_IMPUTED_DATA")
     imputed_train_x = np.load(imputed_dir / "imputed_train_x.npy")
     imputed_val_x = np.load(imputed_dir / "imputed_val_x.npy")
     imputed_test_x = np.load(imputed_dir / "imputed_test_x.npy")
@@ -32,7 +32,7 @@ def impute_and_store(params: ExperimentParams, random_state: int = 0) -> None:
         res = run_MICE(params, random_state)
         return res
 
-    imputed_dir = generate_path(params, prefix="IMPUTED_DATA")
+    imputed_dir = generate_path(params, prefix="JON_IMPUTED_DATA")
     os.makedirs(imputed_dir, exist_ok=True)
 
     out_train_path = imputed_dir / "imputed_train_x.npy"
@@ -116,15 +116,15 @@ def run_MICE(params: ExperimentParams, random_state: int) -> None:
     # avoid bug in MICE when the seed is too large
     random_state = np.mod(random_state, 2147483)
 
-    imputed_dir = generate_path(params, prefix="IMPUTED_DATA")
+    imputed_dir = generate_path(params, prefix="JON_IMPUTED_DATA")
 
     parts = ["train", "val", "test"]
 
-    if all((imputed_dir / f"imputed_{part}_x.npy").exists() for part in parts):
+    '''if all((imputed_dir / f"imputed_{part}_x.npy").exists() for part in parts):
         logger.info("Already Imputed")
-        return
+        return'''
 
-    imputed_dir = generate_path(params, prefix="IMPUTED_DATA")
+    imputed_dir = generate_path(params, prefix="JON_IMPUTED_DATA")
 
     # Generate arguments for MICE R script
     args = [
