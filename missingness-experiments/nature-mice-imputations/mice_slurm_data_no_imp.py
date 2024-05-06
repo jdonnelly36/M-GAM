@@ -21,6 +21,13 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import eval_model, eval_model_by_clusters
 from binarizer import Binarizer
+### Constants
+M_GAM_IMPUTERS = {
+    None: lambda x : 0, # corresponds to encoding missing values as False
+    'mean': np.mean,
+    'median': np.median,
+    'mice': None #don't use a function, use the imputed df 
+}
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
@@ -30,14 +37,19 @@ test_miss = train_miss
 
 metric = 'acc'
 
-print(f'{num_quantiles}')
-
 overall_mi_intercept = True
-overall_mi_ixn = True#False
+overall_mi_ixn = True
 specific_mi_intercept = False
-specific_mi_ixn = False#True
+specific_mi_ixn = False
 
-print(f'{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}')
+#we can impute in addition to using indicators. 
+mgam_imputer = None
+
+print('--- Hyperparameter Settings ---')
+print(f'Quantiles: {num_quantiles}')
+print(f'Distinctness pattern: (overall intercept, overall ixn, specific intercept, 
+      specific interaction): ({overall_mi_intercept}, {overall_mi_ixn}, {specific_mi_intercept}, 
+      {specific_mi_ixn}')
 
 ### Immutable ###
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
@@ -219,11 +231,6 @@ for holdout_set in holdouts:
         y_train_no, y_train_ind, y_train_aug, 
         y_test_no, y_test_ind, y_test_aug, cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
             pd.concat([train, val]), test)
-
-        np.savetxt("no_imp_no_missingness.csv", train_no, delimiter=',')
-        np.savetxt("no_imp_indicator.csv", train_ind, delimiter=",")
-        np.savetxt("no_imp_aug.csv", train_aug, delimiter=',')
-
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)

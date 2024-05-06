@@ -44,7 +44,7 @@ specific_mi_ixn = True
 
 #we can impute in addition to using indicators. 
 mgam_imputer = None
-mice_augmentation_level = 1 # 0 for no missingness features, 1 for indicators, 2 for interactions
+mice_augmentation_level = 2 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 print('--- Hyperparameter Settings ---')
 print(f'Dataset: {dataset}')
@@ -176,8 +176,11 @@ for holdout_set in holdouts:
                 path_to_imputed(dataset, holdout_set, val_set, imputation), 
                 label, predictors, train, test, val)
             
-            imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train_i, val_i]), test_i, validation_size = val_i.shape[0])
-            X_train = imputed_and_binned_data[mice_augmentation_level].copy()
+            imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train, val]), test, 
+                                                                   imputed_train_df = pd.concat([train_i, val_i]), 
+                                                                   imputed_test_df = test_i, validation_size = val_i.shape[0])
+
+            X_train = imputed_and_binned_data[mice_augmentation_level + 0].copy()
             X_val = imputed_and_binned_data[mice_augmentation_level + 3].copy()
             X_test = imputed_and_binned_data[mice_augmentation_level + 6].copy()
             y_train = imputed_and_binned_data[9]
@@ -202,11 +205,11 @@ for holdout_set in holdouts:
             #now that we know the best lambda for each imputation, we can go through 
             # and find the probabilities for each imputation, while training on the full train set, 
             # using these validation-optimal lambdas.
-            imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train_i, val_i]), test_i, imputed_train_df = pd.concat([train_i, val_i]), imputed_test_df = test_i)
+            imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train, val]), test, imputed_train_df = pd.concat([train_i, val_i]), imputed_test_df = test_i)
 
             # grab the level of augmentation from the encoder tuple
-            X_train = imputed_and_binned_data[mice_augmentation_level]
-            X_test = imputed_and_binned_data[mice_augmentation_level + 3]
+            X_train = imputed_and_binned_data[mice_augmentation_level].copy()
+            X_test = imputed_and_binned_data[mice_augmentation_level + 3].copy()
             y_train = imputed_and_binned_data[6]
             y_test = imputed_and_binned_data[9]
 

@@ -152,7 +152,7 @@ class Binarizer:
                     test_no_missing[new_col_name] = new_row_test
                     test_binned[new_col_name] = new_row_test
                     test_augmented_binned[new_col_name] = new_row_test
-        for c_outer in miss_val_cols:
+        for c_outer in miss_val_cols: #NOTE: miss_val_cols expects missingness interactions only to happen if there are missingness intercepts too
             if c_outer == self.label:
                 continue
             for c_inner in self.numerical_cols:
@@ -205,12 +205,12 @@ class Binarizer:
                                 new_row_train = np.zeros(n_train)
                                 new_row_train[(self._nansafe_equals(train_df[c_outer],m_val)) & (train_df[c_inner] == v)] = 1
                                 new_row_train[(self._nansafe_equals(train_df[c_outer],m_val)) & (train_df[c_inner].isin(self.miss_vals))
-                                              & (imputed_train_df[c_inner] <= v)] = 0
+                                              & (imputed_train_df[c_inner] == v)] = 0
         
                                 new_row_test = np.zeros(n_test)
                                 new_row_test[(self._nansafe_equals(test_df[c_outer],m_val)) & (test_df[c_inner] == v)] = 1
                                 new_row_test[(self._nansafe_equals(test_df[c_outer],m_val)) & (test_df[c_inner].isin(self.miss_vals))
-                                             & (imputed_test_df[c_inner] <= v)] = 0
+                                             & (imputed_test_df[c_inner] == v)] = 0
 
                                 if new_row_train.sum() > 0 or new_row_test.sum() > 0: #has missingness
                                     train_augmented_binned[new_col_name] = new_row_train
