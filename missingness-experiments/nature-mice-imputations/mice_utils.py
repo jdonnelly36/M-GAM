@@ -157,6 +157,50 @@ def eval_model(model, X_train, X_test, y_train, y_test, provided_lambdas, metric
     return train_probs, train_auc, test_probs, test_auc, num_coeffs
 
 """
+Evaluates a fastsparsegams model. For each lambda value provided to fastsparsegams, reports 
+the train/test performance under the provided metric, as well as the sparsity of the solution.  
+
+Parameters:
+    model:
+        The model to evaluate.
+    X_train, X_test, y_train, y_test:
+        The train and test data.
+    provided_lambdas:
+        The lambda values provided to fastsparsegams for regularization.
+    metric_fn:
+        The metric to use for evaluation.
+    cluster: 
+        Object that maps from a column name to a set of feature indices that should be penalized once per occurrence, rather than using the default sparsity measure. 
+"""
+def eval_model_by_clusters(model, X_train, X_test, y_train, y_test, provided_lambdas, metric_fn, cluster): 
+    num_coeffs = np.zeros((len(provided_lambdas)))
+    train_auc = np.zeros((len(provided_lambdas)))
+    test_auc = np.zeros((len(provided_lambdas)))
+    train_probs = np.zeros((len(provided_lambdas), X_train.shape[0]))
+    test_probs = np.zeros((len(provided_lambdas), X_test.shape[0]))
+    num_features = np.zeros((len(provided_lambdas)))
+
+    for lamby in model.lambda_0[0]:
+
+        i = provided_lambdas.index(lamby)
+
+        train_probs[i] = model.predict(X_train.astype(float),lambda_0=lamby).reshape(-1)
+        train_auc[i] = metric_fn(y_train, train_probs[i])
+
+        test_probs[i] = model.predict(X_test.astype(float),lambda_0=lamby).reshape(-1)
+        test_auc[i] = metric_fn(y_test, test_probs[i])
+
+        coeffs = (model.coeff(lambda_0=lamby).toarray().flatten())[1:] #first entry is intercept
+        num_coeffs[i] = (coeffs != 0).sum()
+
+        #TODO cluster sparsity add
+        for c in cluster.keys(): 
+            if (coeffs[cluster[c]] != 0).any(): 
+                num_features[i] += 1
+
+    return train_probs, train_auc, test_probs, test_auc, num_coeffs, num_features
+
+"""
 Plotting helper to compute error bars
 """
 def errors(accs, axis=0, error_bar_type='standard error'):

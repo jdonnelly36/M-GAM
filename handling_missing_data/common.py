@@ -35,6 +35,9 @@ DATASETS = [
     "FICO_MAR_50",
     "BREAST_CANCER_MAR_25", 
     "BREAST_CANCER_MAR_50", 
+    "CKD", 
+    "HEART_DISEASE", 
+    "HORSE_COLIC", 
     "APS"
 ]
 IMPUTATIONS = ["Mean", "MICE", "MissForest", "MIWAE", "GAIN"]
@@ -59,6 +62,9 @@ PERCENTAGES = {
     "FICO_MAR_50": [0],
     "BREAST_CANCER_MAR_25": [0],
     "BREAST_CANCER_MAR_50": [0], 
+    'CKD': [0],
+    'HEART_DISEASE': [0],
+    'HORSE_COLIC': [0],
     'APS': [0]
 }
 N_HOLDOUT_SETS = 3

@@ -397,3 +397,39 @@ def get_reg_accu_paths(X_train, X_val, X_test, y_train, y_val, y_test, num_boots
             test_accs_overall.append(np.mean(yhat_test == y_test))
         
     return fit_model, test_accs_overall, support_sizes, lambdas
+
+def add_meaningfull_and_mcar_missingness(
+    data, 
+    meaningfull_missingness_rate=0.2,
+    added_mcar_missingness_rate=0.2,
+    target_cols_for_meaningful=np.array([[0, 1]]),
+    target_cols_for_mcar=np.array([[0, 1]]),
+    interaction_columns=np.array([2]),
+    val_for_meaningfull=-10,
+    val_for_mcar=-10
+):
+    assert interaction_columns.shape[0] == target_cols_for_meaningful.shape[0]
+    data = data.copy()
+
+    targets = np.random.choice(
+        [0, 1], size=(data.shape[0], target_cols_for_meaningful.shape[0]), p=[1-meaningfull_missingness_rate, meaningfull_missingness_rate]
+    )
+
+    for i, cols in enumerate(target_cols_for_meaningful):
+        print(f"Adding missingness to: {data.columns[cols]}")
+        thresh_col = data.columns[interaction_columns[i]]
+        thresh_mask = data[thresh_col] >= data[thresh_col].quantile(0.6)
+        tartget_labels = np.zeros_like(thresh_mask)
+        tartget_labels[thresh_mask] = 1
+        mask = (targets[:, i] == 1) & (data.values[:, -1] == tartget_labels)
+
+        data.loc[mask, data.columns[cols]] = val_for_meaningfull
+
+    targets = np.random.choice(
+        [0, 1], size=(data.shape[0], target_cols_for_mcar.shape[1]), p=[1-added_mcar_missingness_rate, added_mcar_missingness_rate]
+    )
+   
+    for i, col in enumerate(target_cols_for_mcar[0]):
+        data.loc[targets[:, i] == 1, data.columns[col]] = val_for_mcar
+
+    return data

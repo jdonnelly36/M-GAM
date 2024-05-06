@@ -528,4 +528,39 @@ class DataLoaderAPS(_DataLoaderBase):
         return self._data_paths_natural(experiment)
 
 dataloaders["APS"] = DataLoaderAPS
+
+class DataLoaderCKD(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/CKD")
+        self.outcome_col = "class"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["CKD"] = DataLoaderCKD
+
+
+class DataLoaderHeartDisease(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/HEART_DISEASE")
+        self.outcome_col = "num"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["HEART_DISEASE"] = DataLoaderHeartDisease
+
+
+class DataLoaderHorseColic(_DataLoaderBase): 
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/HORSE_COLIC")
+        self.outcome_col = "surgical_lesion"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["HORSE_COLIC"] = DataLoaderHorseColic
     
