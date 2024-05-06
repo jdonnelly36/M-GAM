@@ -156,7 +156,7 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
                     clf.fit(train_full[predictors], train_full[label])
                 except Exception as e:
                     print("Acceptable error (xgboost): ", repr(e))
-                fit_times = fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
+                fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
 
                 ensembled_train_probs = clf.predict_proba(train_full[predictors])[:, 1]
                 ensembled_test_probs = clf.predict_proba(test[predictors])[:, 1]
@@ -514,15 +514,15 @@ if __name__ == '__main__':
 
     imputations = 10
     
-
-    for imputation_method in ['MICE']:#, 'Mean', 'MissForest', 'MIWAE', 'GAIN']:
-        for ds_name in ['CKD', 'HEART_DISEASE']:#, 'HORSE_COLIC']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
+    #
+    for imputation_method in ['Mean', 'MICE', 'MissForest', 'MIWAE']:#, 'MIWAE']:#, 'Mean', 'MissForest', 'MIWAE', 'GAIN']:#, 'HORSE_COLIC']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
+        for ds_name in ['CKD', 'HEART_DISEASE', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS']:#, 'MIMIC']:
             print(f"Running for {imputation_method}, {ds_name}")
             #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
             if False and 'FICO' == ds_name:
                 dataset = f'{dataset_base_path}/DATA/{ds_name}/distinct-missingness/'#'BREAST_CANCER'
             else:
-                dataset = f'{dataset_base_path}/DATA/{ds_name}/'#'BREAST_CANCER'
+                dataset = f'{dataset_base_path}/DATA_REDUCED/{ds_name}/'#'BREAST_CANCER'
             for train_rate in [0]:
                 for test_rate in [0]:
                     dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
@@ -564,12 +564,17 @@ if __name__ == '__main__':
                             gam_res_df = pd.DataFrame()
 
 
+                    new_res = pd.concat([res_df, gam_res_df], axis=0)
+                    
+                    if slurm_iter is not None:
+                        new_res.to_csv(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv',index=False)
+
                     if overall_df is None:
-                        overall_df = pd.concat([res_df, gam_res_df], axis=0)
+                        overall_df = new_res
                     else:
                         print("res_df: ", res_df)
                         print("overall_df: ", overall_df)
-                        overall_df = pd.concat([overall_df, res_df, gam_res_df], axis=0)
+                        overall_df = pd.concat([overall_df, new_res], axis=0)
 
                     if slurm_iter is None:
                         overall_df.to_csv(f'./full_baseline_results_many_clf_{date.today()}_10_holdouts_{imputation_method}_imp_{imputations}_imp_50_max_coef.csv',index=False)
