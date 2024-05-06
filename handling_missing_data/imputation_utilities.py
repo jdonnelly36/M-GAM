@@ -120,9 +120,9 @@ def run_MICE(params: ExperimentParams, random_state: int) -> None:
 
     parts = ["train", "val", "test"]
 
-    if all((imputed_dir / f"imputed_{part}_x.npy").exists() for part in parts):
+    '''if all((imputed_dir / f"imputed_{part}_x.npy").exists() for part in parts):
         logger.info("Already Imputed")
-        return
+        return'''
 
     imputed_dir = generate_path(params, prefix="JON_IMPUTED_DATA")
 
