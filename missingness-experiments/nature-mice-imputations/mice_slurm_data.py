@@ -29,35 +29,30 @@ M_GAM_IMPUTERS = {
     'mean': np.mean,
     'median': np.median
 }
-SPARSITY_METRICS = {
-    'default': (lambda model, X_train, X_test, y_train, y_test, provided_lambdas, metric_fn, 
-                cluster: eval_model(model, X_train, X_test, y_train, y_test, provided_lambdas, metric_fn)),
-    'num_variables': eval_model_by_clusters
-}
 
 #control flow variables
-run_impute_experiments = True
+run_impute_experiments = False
 run_indicator_experiments = True
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'FICO'
+dataset = 'PHARYNGITIS'
 train_miss = 0
 test_miss = train_miss
 
 metric = 'acc'
 
 overall_mi_intercept = False
-overall_mi_ixn = True
+overall_mi_ixn = False
 specific_mi_intercept = True
-specific_mi_ixn = False
+specific_mi_ixn = True
 
 #we can impute in addition to using indicators. 
 mgam_imputer = None
 mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
-sparsity_metric = 'default'
+sparsity_metric = 'num_variables'#'default'
 
 #imputation baseline
 baseline_imputer = 'MICE'
@@ -273,24 +268,28 @@ for holdout_set in holdouts:
             model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                         num_lambda=None, num_gamma=None, max_support_size=s_size)
             (_, train_auc_no_missing[holdout_set], 
-            _, test_auc_no_missing[holdout_set], sparsity_no_missing[holdout_set]) = SPARSITY_METRICS[sparsity_metric](
+            _, test_auc_no_missing[holdout_set], sparsity_coeff, sparsity_feature) = eval_model_by_clusters(
                 model_no, train_no, test_no, y_train_no, y_test_no, lambda_grid[0], METRIC_FN[metric], cluster_no
                 )
+
+            sparsity_no_missing[holdout_set] = sparsity_coeff if sparsity_metric == 'default' else sparsity_feature
             
             model_ind = fastsparsegams.fit(train_ind, y_train_ind, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                         num_lambda=None, num_gamma=None, max_support_size=s_size)
             (_, train_auc_indicator[holdout_set], 
-            _, test_auc_indicator[holdout_set], sparsity_indicator[holdout_set]) = SPARSITY_METRICS[sparsity_metric](
+            _, test_auc_indicator[holdout_set], sparsity_coeff, sparsity_feature) = eval_model_by_clusters(
                 model_ind, train_ind, test_ind, y_train_ind, y_test_ind, lambda_grid[0], METRIC_FN[metric], cluster_ind
                 )
+            sparsity_indicator[holdout_set] = sparsity_coeff if sparsity_metric == 'default' else sparsity_feature
             
             model_aug = fastsparsegams.fit(train_aug, y_train_aug, loss="Exponential", algorithm="CDPSI", 
                                         lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, max_support_size=s_size)
             (_, train_auc_aug[holdout_set], 
-            _, test_auc_aug[holdout_set], sparsity_aug[holdout_set]) = SPARSITY_METRICS[sparsity_metric](
+            _, test_auc_aug[holdout_set], sparsity_coeff, sparsity_feature) = eval_model_by_clusters(
                 model_aug, train_aug, test_aug, y_train_aug, y_test_aug, lambda_grid[0], 
                 METRIC_FN[metric], cluster_aug
                 )
+            sparsity_aug[holdout_set] = sparsity_coeff if sparsity_metric == 'default' else sparsity_feature
 
 #save data to csv: 
 
