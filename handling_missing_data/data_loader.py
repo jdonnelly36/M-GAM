@@ -399,6 +399,24 @@ class DataLoaderAdult(_DataLoaderBase):
 
 dataloaders["ADULT"] = DataLoaderAdult
 
+class DataLoaderAdult_MAR_25(DataLoaderAdult):
+    cols_path = "../adult_cols.json"
+    factor_levels_path = "../factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/ADULT_MAR/0.25"
+
+dataloaders["ADULT_MAR_25"] = DataLoaderAdult_MAR_25
+
+class DataLoaderAdult_MAR_50(DataLoaderAdult):
+    cols_path = "../adult_cols.json"
+    factor_levels_path = "../factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/ADULT_MAR/0.5"
+
+dataloaders["ADULT_MAR_50"] = DataLoaderAdult_MAR_50
+
 
 class DataLoaderBreast(_DataLoaderBase):
     onehot_encoder = None

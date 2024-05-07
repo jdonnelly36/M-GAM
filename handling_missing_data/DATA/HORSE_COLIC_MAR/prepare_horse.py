@@ -66,7 +66,7 @@ for added_missingness_rate in [0.25, 0.5]:
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
         mask = (targets[:, i] == 1) & (df['surgical_lesion'] == tartget_labels)
-        df.loc[mask, df.columns[col]] = -10
+        df.loc[mask, df.columns[col]] = np.nan
 
 
     import json
@@ -78,7 +78,7 @@ for added_missingness_rate in [0.25, 0.5]:
     from sklearn.model_selection import KFold
     import os
 
-    missing_folder = f'{added_missingness_rate}/distinct-missingness'
+    missing_folder = f'{added_missingness_rate}'
     if not os.path.exists(missing_folder):
         os.makedirs(missing_folder)
 
