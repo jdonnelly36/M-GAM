@@ -147,7 +147,13 @@ class MIWAE():
     def miwae_impute(self, iota_x,mask,L):
         batch_size = iota_x.shape[0]
         out_encoder = self.encoder(iota_x)
-        q_zgivenxobs = td.Independent(td.Normal(loc=out_encoder[..., :self.dim_Z],scale=torch.nn.Softplus()(out_encoder[..., self.dim_Z:(2*self.dim_Z)])),1)
+        q_zgivenxobs = td.Independent(
+            td.Normal(
+                loc=out_encoder[..., :self.dim_Z],
+                scale=torch.nn.Softplus()(out_encoder[..., self.dim_Z:(2*self.dim_Z)]) + 1e-8
+            ),
+            1
+        )
 
         zgivenx = q_zgivenxobs.rsample([L])
         zgivenx_flat = zgivenx.reshape([L*batch_size,self.dim_Z])
