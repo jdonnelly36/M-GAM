@@ -368,6 +368,37 @@ class DataLoaderNHSX(_DataLoaderBase):
 
 dataloaders["NHSX_COVID19"] = DataLoaderNHSX
 
+class DataLoaderAdult(_DataLoaderBase):
+    cols = None
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA/ADULT"
+        self.outcome_col = "income"
+
+    def extract_cat_vars(self, one_hot: bool) -> tuple[list[int], list[int]]:
+        cols = self.get_cols_data()
+
+        if one_hot:
+            cols_onehot = cols["onehot"]
+            return cols_onehot[0], cols_onehot[1]
+
+        cols_encoded = cols["encoded"]
+        return cols_encoded[0], cols_encoded[1]
+
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+    def onehot_to_ord(self, df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
+        return self.onehot_to_ord_multicat(df)
+
+    def ord_to_onehot(self, data: np.ndarray) -> np.ndarray:
+        return self.ord_to_onehot_multicat(data)
+
+dataloaders["ADULT"] = DataLoaderAdult
+
 
 class DataLoaderBreast(_DataLoaderBase):
     onehot_encoder = None

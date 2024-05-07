@@ -66,7 +66,8 @@ DATASETS = [
     "HORSE_COLIC_MAR_25",
     "HORSE_COLIC_MAR_50",
     "MIMIC_MAR_25",
-    "MIMIC_MAR_50"
+    "MIMIC_MAR_50", 
+    "ADULT"
 ]
 IMPUTATIONS = ["Mean", "MICE", "MissForest", "MIWAE", "GAIN"]
 PERCENTAGES = {
@@ -121,7 +122,8 @@ PERCENTAGES = {
     'HORSE_COLIC_MAR_25': [0],
     'HORSE_COLIC_MAR_50': [0],
     'MIMIC_MAR_25': [0],
-    'MIMIC_MAR_50': [0]
+    'MIMIC_MAR_50': [0],
+    "ADULT": [0]
 }
 N_HOLDOUT_SETS = 3
 N_VAL_SETS = 5  # 5 validation sets per holdout set
