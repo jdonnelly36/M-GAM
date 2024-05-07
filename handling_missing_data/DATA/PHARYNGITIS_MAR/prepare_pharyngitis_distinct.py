@@ -36,13 +36,13 @@ for added_missingness_rate in [0.25, 0.5]:
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
         mask = (targets[:, i] == 1) & (data['radt'] == tartget_labels)
-        data.loc[mask, data.columns[col]] = np.nan
+        data.loc[mask, data.columns[col]] = -10
 
 
     # ### Create training, validation and holdout sets
     import os
 
-    missing_folder = f'{added_missingness_rate}'
+    missing_folder = f'{added_missingness_rate}/distinct-missingness'
     if not os.path.exists(missing_folder):
         os.makedirs(missing_folder)
 

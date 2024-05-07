@@ -15,12 +15,23 @@ added_missingness_num_cols = 1
 for added_missingness_rate in [0.25, 0.5]:
 
 
-    data = pd.read_csv('pharyngitis.csv')
-    ordered_cols = list(set(data.columns) - set(['radt'])) + ['radt']
-    data = data[ordered_cols]
+    data = pd.read_csv('mimic_full_union.csv')
+
+
+    missing_val = [-7, -8, -9]
+    data = data.replace(missing_val, np.nan)
 
 
     data.isnull().sum()
+
+
+    data.hist(figsize=(30, 20), layout=(5, 10))
+
+
+    data[data.columns[data.isnull().sum()>0.01*len(data)]].hist(figsize=(30, 20))
+
+
+    data.loc[data['hospital_expire_flag']==-1, 'hospital_expire_flag'] = 0
 
     np.random.seed(0)
 
@@ -35,14 +46,13 @@ for added_missingness_rate in [0.25, 0.5]:
         thresh_mask = data[thresh_col] >= data[thresh_col].quantile(0.6)
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
-        mask = (targets[:, i] == 1) & (data['radt'] == tartget_labels)
-        data.loc[mask, data.columns[col]] = np.nan
+        mask = (targets[:, i] == 1) & (data['hospital_expire_flag'] == tartget_labels)
+        data.loc[mask, data.columns[col]] = -10
 
 
-    # ### Create training, validation and holdout sets
     import os
 
-    missing_folder = f'{added_missingness_rate}'
+    missing_folder = f'{added_missingness_rate}/distinct-missingness'
     if not os.path.exists(missing_folder):
         os.makedirs(missing_folder)
 
@@ -67,8 +77,6 @@ for added_missingness_rate in [0.25, 0.5]:
             val_fold = devel_fold.iloc[idx_fold_split[1]]
             train_fold.to_csv(f'{missing_folder}/devel_{holdout_num}_train_{fold_num}.csv', index=False)
             val_fold.to_csv(f'{missing_folder}/devel_{holdout_num}_val_{fold_num}.csv', index=False)
-
-
 
 
 

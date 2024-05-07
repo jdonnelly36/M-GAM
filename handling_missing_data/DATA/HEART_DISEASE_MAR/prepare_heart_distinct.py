@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# coding: utf-8
+
 
 
 from ucimlrepo import fetch_ucirepo 
@@ -7,47 +9,25 @@ import numpy as np
 
 added_missingness_num_cols = 1
 for added_missingness_rate in [0.25, 0.5]: 
-    
+  
     # fetch dataset 
-    chronic_kidney_disease = fetch_ucirepo(id=336) 
+    heart_disease = fetch_ucirepo(id=45) 
     
     # data (as pandas dataframes) 
-    X = chronic_kidney_disease.data.features 
-    y = chronic_kidney_disease.data.targets 
+    X = heart_disease.data.features 
+    y = heart_disease.data.targets 
     
     # metadata 
     df = pd.concat([X, y], axis=1)
 
 
+    # Every number > 0 indicates a different abnormal finding, so binarize
+    df.loc[df['num'] > 0, 'num'] = 1
+
 
     for c in df.columns:
-        if df[c].dtype != 'float64':
+        if df[c].dtype not in ['float64', 'int64']:
             print(f"{c}:", df[c].unique())
-
-
-
-    def binarize(col):
-        col[col == 'normal'] = 1.0
-        col[col == 'abnormal'] = 0.0
-
-        col[col == 'yes'] = 1.0
-        col[col == 'no'] = 0.0
-        col[col == '\tno'] = 0.0
-
-        col[col == 'present'] = 1.0
-        col[col == 'notpresent'] = 0.0
-
-        col[col == 'good'] = 1.0
-        col[col == 'poor'] = 0.0
-
-        # Binarize labels
-        col[col == 'ckd'] = 1
-        col[col == 'ckd\t'] = 1
-        col[col == 'notckd'] = 0
-        return col
-
-    df = df.apply(binarize, axis=1)
-
 
     np.random.seed(0)
 
@@ -62,19 +42,20 @@ for added_missingness_rate in [0.25, 0.5]:
         thresh_mask = df[thresh_col] >= df[thresh_col].quantile(0.6)
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
-        mask = (targets[:, i] == 1) & (df['class'] == tartget_labels)
-        df.loc[mask, df.columns[col]] = np.nan
+        mask = (targets[:, i] == 1) & (df['num'] == tartget_labels)
+        df.loc[mask, df.columns[col]] = -10
+
 
     import json
-    import os
     from pathlib import Path
 
     import pandas as pd
     import numpy as np
     from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
     from sklearn.model_selection import KFold
+    import os
 
-    missing_folder = f'{added_missingness_rate}'
+    missing_folder = f'{added_missingness_rate}/distinct-missingness'
     if not os.path.exists(missing_folder):
         os.makedirs(missing_folder)
 
@@ -103,6 +84,9 @@ for added_missingness_rate in [0.25, 0.5]:
             val_fold = devel_fold.iloc[idx_fold_split[1]]
             train_fold.to_csv(f'{missing_folder}/devel_{holdout_num}_train_{fold_num}.csv', index=False)
             val_fold.to_csv(f'{missing_folder}/devel_{holdout_num}_val_{fold_num}.csv', index=False)
+
+
+    # In[ ]:
 
 
 

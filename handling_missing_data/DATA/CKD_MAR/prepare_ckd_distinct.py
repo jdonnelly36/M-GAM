@@ -63,7 +63,7 @@ for added_missingness_rate in [0.25, 0.5]:
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
         mask = (targets[:, i] == 1) & (df['class'] == tartget_labels)
-        df.loc[mask, df.columns[col]] = np.nan
+        df.loc[mask, df.columns[col]] = -10
 
     import json
     import os
@@ -74,7 +74,7 @@ for added_missingness_rate in [0.25, 0.5]:
     from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
     from sklearn.model_selection import KFold
 
-    missing_folder = f'{added_missingness_rate}'
+    missing_folder = f'{added_missingness_rate}/distinct-missingness'
     if not os.path.exists(missing_folder):
         os.makedirs(missing_folder)
 
