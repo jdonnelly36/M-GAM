@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=missing_data # Job name
+#SBATCH --job-name=plot # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=missing_data_%j.out
+#SBATCH --output=logs/plot_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -33,6 +33,12 @@ overall_mi_ixn = False
 specific_mi_intercept = True
 specific_mi_ixn = True
 
+mgam_imputer = None
+mice_augmentation_level = 1 # 0 for no missingness features, 1 for indicators, 2 for interactions
+
+sparsity_metric = 'default'
+baseline_imputer = 'MICE'
+
 DATASET_NAME = {
     'FICO': 'FICO',
     'BREAST_CANCER': 'BREAST_CANCER', 
@@ -57,7 +63,7 @@ METRIC_NAME = {
     'loss': 'Exponential Loss'
 }
 
-s_size_folder = '100/'
+s_size_folder = '100'
 train_miss = 0
 test_miss = train_miss
 s_size_cutoff = 52.5
@@ -74,14 +80,24 @@ if train_miss != 0 or test_miss != 0:
 if num_quantiles != 8: 
      res_dir = f'{res_dir}/q{num_quantiles}'
 
+mice_res_dir = f'{res_dir}/{s_size_folder}'+(
+     f'/{mice_augmentation_level}' if mice_augmentation_level > 0 else '')+(
+        f'/{baseline_imputer}' if baseline_imputer != 'MICE' else ''
+     )
+
+if sparsity_metric != 'default': 
+    res_dir = f'{res_dir}/sparsity_{sparsity_metric}'
+if mgam_imputer != None: 
+    res_dir = f'{res_dir}/imputer_{mgam_imputer}'
+
 train_auc_aug = np.loadtxt(f'{res_dir}/train_{metric}_aug.csv')
 train_auc_indicator = np.loadtxt(f'{res_dir}/train_{metric}_indicator.csv')
 train_auc_no_missing = np.loadtxt(f'{res_dir}/train_{metric}_no_missing.csv')
 test_auc_aug = np.loadtxt(f'{res_dir}/test_{metric}_aug.csv')
 test_auc_indicator = np.loadtxt(f'{res_dir}/test_{metric}_indicator.csv')
 test_auc_no_missing = np.loadtxt(f'{res_dir}/test_{metric}_no_missing.csv')
-imputation_ensemble_train_auc = np.loadtxt(f'{res_dir}/{s_size_folder}imputation_ensemble_train_{metric}.csv')
-imputation_ensemble_test_auc = np.loadtxt(f'{res_dir}/{s_size_folder}imputation_ensemble_test_{metric}.csv')
+imputation_ensemble_train_auc = np.loadtxt(f'{mice_res_dir}/imputation_ensemble_train_{metric}.csv')
+imputation_ensemble_test_auc = np.loadtxt(f'{mice_res_dir}/imputation_ensemble_test_{metric}.csv')
 nllambda = np.loadtxt(f'{res_dir}/nllambda.csv')
 
 sparsity_aug = np.loadtxt(f'{res_dir}/sparsity_aug.csv')
@@ -110,6 +126,14 @@ test_auc_indicator = test_auc_indicator[:, no_timeouts_indicator]
 
 fig_dir = f'./figs/{dataset}/'
 fig_dir = f'{fig_dir}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}/'
+fig_dir = f'{fig_dir}{s_size_folder}/'
+fig_dir += f'{mice_augmentation_level}/' if mice_augmentation_level > 0 else ''
+fig_dir += f'{baseline_imputer}/' if baseline_imputer != 'MICE' else ''
+if sparsity_metric != 'default': 
+    fig_dir = f'{fig_dir}/sparsity_{sparsity_metric}'
+if mgam_imputer != None: 
+    fig_dir = f'{fig_dir}/imputer_{mgam_imputer}'
+
 if train_miss != 0 or test_miss != 0: 
     fig_dir = f'{fig_dir}train_{train_miss}/test_{test_miss}/'
 if num_quantiles != 8: 

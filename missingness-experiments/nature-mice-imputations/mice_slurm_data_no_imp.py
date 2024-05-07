@@ -21,6 +21,13 @@ import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import eval_model, eval_model_by_clusters
 from binarizer import Binarizer
+### Constants
+M_GAM_IMPUTERS = {
+    None: lambda x : 0, # corresponds to encoding missing values as False
+    'mean': np.mean,
+    'median': np.median,
+    'mice': None #don't use a function, use the imputed df 
+}
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
@@ -30,14 +37,19 @@ test_miss = train_miss
 
 metric = 'acc'
 
-print(f'{num_quantiles}')
-
 overall_mi_intercept = True
-overall_mi_ixn = True#False
+overall_mi_ixn = True
 specific_mi_intercept = False
-specific_mi_ixn = False#True
+specific_mi_ixn = False
 
-print(f'{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}')
+#we can impute in addition to using indicators. 
+mgam_imputer = None
+
+print('--- Hyperparameter Settings ---')
+print(f'Quantiles: {num_quantiles}')
+print(f'Distinctness pattern: (overall intercept, overall ixn, specific intercept, 
+      specific interaction): ({overall_mi_intercept}, {overall_mi_ixn}, {specific_mi_intercept}, 
+      {specific_mi_ixn}')
 
 ### Immutable ###
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
@@ -145,70 +157,6 @@ for holdout_set in holdouts:
         # TODO: encode miss_vals to the specific set of missingness values for this dataset, 
         # or add functionality to prune out non-occurring missingness values in binarizer
 
-        ###########################
-        ### Imputation approach ###
-        ###########################
-        # if 'BREAST_CANCER' in dataset and val_set == 3 and holdout_set == 6: #missed run at this stage; will have to adjust for plotting as well
-        #     continue
-        # if 'BREAST_CANCER_MAR_25' in dataset and val_set == 2 and holdout_set == 9: #missed run at this stage; will have to adjust for plotting as well
-        #     continue
-        # imputation_train_probs = np.zeros((len(imputations), train.shape[0] + val.shape[0]))
-        # imputation_test_probs = np.zeros((len(imputations), test.shape[0]))
-
-        # best_lambdas = np.zeros(len(imputations))
-
-        # #find best lambda for each imputation, using validation set. 
-        #     #currently, selects best auc using only one validation fold. 
-        #     # one possible TODO is to select using 5-fold cross validation
-        #     # (this may require verifying whether all 5 train/val splits use the same imputation)
-        #     # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
-        # for imputation_idx, imputation in enumerate(imputations):
-        #     X_train, X_val, X_test, y_train, y_val, y_test = get_train_test_binarized(
-        #         label, predictors, train, test, val, num_quantiles, 
-        #         path_to_imputed(dataset, holdout_set, val_set, imputation), 
-        #         validation=True) #decides quantiles using train and val, not test
-            
-        #     model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
-        #                                lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, 
-        #                                max_support_size=s_size)
-            
-        #     (_, _, val_probs, _, _) = eval_model(
-        #         model, X_train, X_val, y_train, y_val, lambda_grid[0],
-        #         METRIC_FN[metric]
-        #         )
-        #     ensembled_val_aucs = np.zeros(len(lambda_grid[0]))
-            
-        #     for i in range(len(lambda_grid[0])):
-        #         ensembled_val_aucs[i] = METRIC_FN[mice_validation_metric](y_val, val_probs[i])
-        #     best_lambda = np.argmax(ensembled_val_aucs) #not optimal runtime, but should not be an issue
-        #     best_lambdas[imputation_idx] = best_lambda
-
-        #     #now that we know the best lambda for each imputation, we can go through 
-        #     # and find the probabilities for each imputation, while training on the full train set, 
-        #     # using these validation-optimal lambdas.
-        #     X_train, X_test, y_train, y_test = get_train_test_binarized(
-        #         label, predictors, train, test, val, num_quantiles, 
-        #         path_to_imputed(dataset, holdout_set, val_set, imputation))
-
-        #     model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
-        #                                lambda_grid=lambda_grid, 
-        #                                num_lambda=None, num_gamma=None, max_support_size=s_size)#inefficient to search whole grid(TODO)
-            
-        #     (train_probs, _, test_probs, _, _) = eval_model(
-        #         model, X_train, X_test, y_train, y_test, lambda_grid[0], 
-        #         METRIC_FN[metric]
-        #         )
-        #     imputation_train_probs[imputation_idx] = train_probs[best_lambda]
-        #     imputation_test_probs[imputation_idx] = test_probs[best_lambda]
-
-        # # calculate ensembled metric across all imputations: 
-        # ensembled_train_probs = imputation_train_probs.mean(axis=0)
-        # ensembled_test_probs = imputation_test_probs.mean(axis=0)
-
-        # imputation_ensemble_train_auc[val_set, holdout_set] = METRIC_FN[metric](y_train, ensembled_train_probs)
-
-        # imputation_ensemble_test_auc[val_set, holdout_set] = METRIC_FN[metric](y_test, ensembled_test_probs)
-
         ######################################
         ### Missingness Indicator Approach ###
         ######################################
@@ -219,11 +167,6 @@ for holdout_set in holdouts:
         y_train_no, y_train_ind, y_train_aug, 
         y_test_no, y_test_ind, y_test_aug, cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
             pd.concat([train, val]), test)
-
-        np.savetxt("no_imp_no_missingness.csv", train_no, delimiter=',')
-        np.savetxt("no_imp_indicator.csv", train_ind, delimiter=",")
-        np.savetxt("no_imp_aug.csv", train_aug, delimiter=',')
-
 
         model_no = fastsparsegams.fit(train_no, y_train_no, loss="Exponential", algorithm="CDPSI", lambda_grid=lambda_grid, 
                                     num_lambda=None, num_gamma=None, max_support_size=s_size)
