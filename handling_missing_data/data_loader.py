@@ -712,6 +712,9 @@ class DataLoaderCKD_75(_DataLoaderBase):
         self.datadir = ("DATA_REDUCED/CKD_0.75")
         self.outcome_col = "class"
         
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+        
 dataloaders["CKD_0.75"] = DataLoaderCKD_75
 
 class DataLoaderHeartDisease(_DataLoaderBase): 
