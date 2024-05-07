@@ -56,7 +56,15 @@ DATASETS = [
     "HEART_DISEASE_0.5", 
     "HEART_DISEASE_0.75", 
     "HORSE_COLIC", 
-    "APS"
+    "APS", 
+    "CKD_MAR_25", 
+    "CKD_MAR_50",
+    "HEART_DISEASE_MAR_25",
+    "HEART_DISEASE_MAR_50",
+    "HORSE_COLIC_MAR_25",
+    "HORSE_COLIC_MAR_50",
+    "MIMIC_MAR_25",
+    "MIMIC_MAR_50",
 ]
 IMPUTATIONS = ["Mean", "MICE", "MissForest", "MIWAE", "GAIN"]
 PERCENTAGES = {
