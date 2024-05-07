@@ -823,6 +823,28 @@ class DataLoaderHEART_DISEASE_75(_DataLoaderBase):
         
 dataloaders["HEART_DISEASE_0.75"] = DataLoaderHEART_DISEASE_75
 
+class DataLoaderHEART_DISEASE_MAR_25(_DataLoaderBase):
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/HEART_DISEASE_MAR/0.25")
+        self.outcome_col = "num"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+    
+dataloaders["HEART_DISEASE_MAR_25"] = DataLoaderHEART_DISEASE_MAR_25
+
+class DataLoaderHEART_DISEASE_MAR_50(_DataLoaderBase):
+    def __init__(self):
+        super().__init__()
+        self.datadir = ("DATA/HEART_DISEASE_MAR/0.5")
+        self.outcome_col = "num"
+    
+    def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
+        return self._data_paths_natural(experiment)
+
+dataloaders["HEART_DISEASE_MAR_50"] = DataLoaderHEART_DISEASE_MAR_50
+
 class DataLoaderHorseColic(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
