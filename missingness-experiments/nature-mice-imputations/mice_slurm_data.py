@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60]
+#SBATCH  -x linux[41-60]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 import os
@@ -31,12 +31,12 @@ M_GAM_IMPUTERS = {
 }
 
 #control flow variables
-run_impute_experiments = False
+run_impute_experiments = True
 run_indicator_experiments = True
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'PHARYNGITIS'
+dataset = 'BREAST_CANCER_MAR_50'
 train_miss = 0
 test_miss = train_miss
 
@@ -52,10 +52,10 @@ mgam_imputer = None
 mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
-sparsity_metric = 'num_variables'#'default'
+sparsity_metric = 'default'#'default'
 
 #imputation baseline
-baseline_imputer = 'MICE'
+baseline_imputer = 'MICE' #GAIN/  Mean/  MICE/  MissForest/  MIWAE/
 
 print('--- Hyperparameter Settings ---')
 print(f'Dataset: {dataset}')

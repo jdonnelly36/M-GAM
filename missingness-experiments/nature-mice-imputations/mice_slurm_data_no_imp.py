@@ -88,6 +88,12 @@ def path_to_imputed(dataset, holdout_set, val_set, imputation):
         return  f'../../handling_missing_data/IMPUTED_DATA/{dataset}/MICE/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
     return f'../../handling_missing_data/IMPUTED_DATA/{dataset}/MICE/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
 
+# def path_to_imputed(dataset, holdout_set, val_set, imputation, imp_name = 'MICE'):
+#     if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
+#         return  f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/{imp_name}/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+#     return f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/{imp_name}/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+
+
 def prefix_pre_imputed(dataset):
     standard_prefix = '../../handling_missing_data/DATA'
     if 'SYNTHETIC' in dataset:
@@ -105,7 +111,7 @@ def prefix_pre_imputed(dataset):
         overall_dataset = dataset[:dataset.rfind('_')]
         return  f'{standard_prefix}/{overall_dataset}/{missing_prop}/'
     prefix = f'{standard_prefix}/{dataset}/'
-    if use_distinct and 'FICO' in dataset or 'SYNTHETIC' in dataset: 
+    if use_distinct and 'FICO' in dataset or 'SYNTHETIC' in dataset or 'MAR' in dataset: 
         return f'{prefix}distinct-missingness/'
     else: 
         return prefix
