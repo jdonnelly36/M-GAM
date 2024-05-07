@@ -34,7 +34,10 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 mgam_imputer = None
-mice_augmentation_level = 2 # 0 for no missingness features, 1 for indicators, 2 for interactions
+mice_augmentation_level = 1 # 0 for no missingness features, 1 for indicators, 2 for interactions
+
+sparsity_metric = 'default'
+baseline_imputer = 'MICE'
 
 DATASET_NAME = {
     'FICO': 'FICO',
@@ -78,7 +81,14 @@ if num_quantiles != 8:
      res_dir = f'{res_dir}/q{num_quantiles}'
 
 mice_res_dir = f'{res_dir}/{s_size_folder}'+(
-     f'/{mice_augmentation_level}' if mice_augmentation_level > 0 else '')
+     f'/{mice_augmentation_level}' if mice_augmentation_level > 0 else '')+(
+        f'/{baseline_imputer}' if baseline_imputer != 'MICE' else ''
+     )
+
+if sparsity_metric != 'default': 
+    res_dir = f'{res_dir}/sparsity_{sparsity_metric}'
+if mgam_imputer != None: 
+    res_dir = f'{res_dir}/imputer_{mgam_imputer}'
 
 train_auc_aug = np.loadtxt(f'{res_dir}/train_{metric}_aug.csv')
 train_auc_indicator = np.loadtxt(f'{res_dir}/train_{metric}_indicator.csv')
@@ -118,6 +128,11 @@ fig_dir = f'./figs/{dataset}/'
 fig_dir = f'{fig_dir}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}/'
 fig_dir = f'{fig_dir}{s_size_folder}/'
 fig_dir += f'{mice_augmentation_level}/' if mice_augmentation_level > 0 else ''
+fig_dir += f'{baseline_imputer}/' if baseline_imputer != 'MICE' else ''
+if sparsity_metric != 'default': 
+    fig_dir = f'{fig_dir}/sparsity_{sparsity_metric}'
+if mgam_imputer != None: 
+    fig_dir = f'{fig_dir}/imputer_{mgam_imputer}'
 
 if train_miss != 0 or test_miss != 0: 
     fig_dir = f'{fig_dir}train_{train_miss}/test_{test_miss}/'

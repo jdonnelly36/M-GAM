@@ -36,10 +36,10 @@ class Binarizer:
 
     def binarize_and_augment(self, train_df, test_df, imputed_train_df = None, 
                              imputed_test_df = None, validation_size = 0):
-        if self.imputer is not None:
-            imputed_train_df, imputed_test_df = self._impute_single_val(train_df, test_df)
+        if imputed_train_df is not None and imputed_test_df is not None:
             return_tuple = self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
-        elif imputed_train_df is not None and imputed_test_df is not None:
+        elif self.imputer is not None:
+            imputed_train_df, imputed_test_df = self._impute_single_val(train_df, test_df)
             return_tuple = self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
         else: 
             return_tuple = self._binarize(train_df, test_df)
