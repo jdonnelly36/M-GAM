@@ -514,72 +514,97 @@ if __name__ == '__main__':
 
     imputations = 10
     
-    #
-    for imputation_method in ['Mean', 'MICE', 'MissForest', 'MIWAE']:#, 'MIWAE']:#, 'Mean', 'MissForest', 'MIWAE', 'GAIN']:#, 'HORSE_COLIC']: #['FICO_0.25', 'FICO_0.5']:#, #['BREAST_CANCER', ]:
-        for ds_name in ['CKD', 'HEART_DISEASE', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS']:#, 'MIMIC']:
-            print(f"Running for {imputation_method}, {ds_name}")
-            #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
-            if False and 'FICO' == ds_name:
-                dataset = f'{dataset_base_path}/DATA/{ds_name}/distinct-missingness/'#'BREAST_CANCER'
-            else:
-                dataset = f'{dataset_base_path}/DATA_REDUCED/{ds_name}/'#'BREAST_CANCER'
-            for train_rate in [0]:
-                for test_rate in [0]:
-                    dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
-                    dataset_suffix = f''
+    """
+    Have completed:
+    for imputation_method in ['Mean', 'MICE', 'MissForest']:
+        for ds_name in ['CKD', 'HEART_DISEASE', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS']:
 
-                    if 'FICO' in ds_name:
-                        na_check = lambda x: x < -5
-                    else:
-                        na_check = lambda x: x.isna()
+    for imputation_method in ['Mean', 'MICE', 'MissForest',]:
+        for subsample in ['_0.25', '_0.5', '_0.75']:
+            for ds_name in ['CKD', 'HEART_DISEASE', 'BREAST_CANCER', 'PHARYNGITIS']:
 
-                    if slurm_iter is None:
-                        gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
-                                    dataset_name=f'{ds_name}', imputations=imputations, na_check=na_check, imputation_method=imputation_method,
-                                    val_metric='auc' if 'BREAST' in ds_name else 'acc')
-                        res_df = get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset_imp, dataset_suffix,
-                            dataset_name=f'{ds_name}', imputation_method=imputation_method, imputations=imputations,
-                            val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy')
-                    else:
+    Have running:
+    for imputation_method in ['MIWAE]:
+        for subsample in ['', '_0.25', '_0.5', '_0.75']:
+            for ds_name in ['CKD', 'HEART_DISEASE', 'PHARYNGITIS', 'FICO']:
 
-                        
-                        res_df = pd.DataFrame()
-                        model_ind = (slurm_iter // len(holdouts)) % len(model_types)
-                        res_df = get_timing_and_accuracy_baselines([model_types[model_ind]], 
-                                    [param_grids[model_ind]], dataset, dataset_imp, dataset_suffix,
-                                    dataset_name=f'{ds_name}', imputation_method=imputation_method, 
-                                    imputations=imputations, holdouts=[holdouts[slurm_iter % len(holdouts)]],
-                                    val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy',
-                                    use_smim=(slurm_iter // (len(holdouts) * len(model_types))) < 1)
+    Need to run:
 
-                        # We only want to run the GAM bit num_holdouts times
-                        # rather than num_holdouts * num_baselines times
-                        if slurm_iter // len(holdouts) == 0:
-                            gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
-                                        dataset_name=f'{ds_name}', imputations=imputations, 
-                                        na_check=na_check, imputation_method=imputation_method,
-                                        holdouts=[holdouts[slurm_iter % len(holdouts)]],
-                                        val_metric='auc' if 'BREAST' in ds_name else 'acc')
+    for imputation_method in ['Mean', 'MICE', 'MissForest',]:
+        for subsample in ['_0.25', '_0.5', '_0.75']:
+            for ds_name in ['FICO']:
+
+    for imputation_method in ['Mean', 'MICE', 'MissForest', 'MIWAE']:
+        for subsample in ['', '_0.25', '_0.5', '_0.75']:
+            for ds_name in ['ADULT', 'BREAST_CANCER', 'MIMIC']:
+    """
+    for imputation_method in ['MIWAE']:
+        for subsample in ['_0.5', '_0.75', '', '_0.25']:
+            for ds_name in ['CKD', 'PHARYNGITIS', 'FICO', 'HEART_DISEASE']:
+                ds_name = ds_name + subsample
+                print(f"Running for {imputation_method}, {ds_name}")
+                #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
+                if False and 'FICO' == ds_name:
+                    dataset = f'{dataset_base_path}/DATA/{ds_name}/distinct-missingness/'#'BREAST_CANCER'
+                else:
+                    dataset = f'{dataset_base_path}/DATA_REDUCED/{ds_name}/'#'BREAST_CANCER'
+                for train_rate in [0]:
+                    for test_rate in [0]:
+                        dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
+                        dataset_suffix = f''
+
+                        if 'FICO' in ds_name:
+                            na_check = lambda x: x < -5
                         else:
-                            gam_res_df = pd.DataFrame()
+                            na_check = lambda x: x.isna()
+
+                        if slurm_iter is None:
+                            gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
+                                        dataset_name=f'{ds_name}', imputations=imputations, na_check=na_check, imputation_method=imputation_method,
+                                        val_metric='auc' if 'BREAST' in ds_name else 'acc')
+                            res_df = get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset_imp, dataset_suffix,
+                                dataset_name=f'{ds_name}', imputation_method=imputation_method, imputations=imputations,
+                                val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy')
+                        else:
+
+                            
+                            res_df = pd.DataFrame()
+                            model_ind = (slurm_iter // len(holdouts)) % len(model_types)
+                            res_df = get_timing_and_accuracy_baselines([model_types[model_ind]], 
+                                        [param_grids[model_ind]], dataset, dataset_imp, dataset_suffix,
+                                        dataset_name=f'{ds_name}', imputation_method=imputation_method, 
+                                        imputations=imputations, holdouts=[holdouts[slurm_iter % len(holdouts)]],
+                                        val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy',
+                                        use_smim=(slurm_iter // (len(holdouts) * len(model_types))) < 1)
+
+                            # We only want to run the GAM bit num_holdouts times
+                            # rather than num_holdouts * num_baselines times
+                            if slurm_iter // len(holdouts) == 0:
+                                gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
+                                            dataset_name=f'{ds_name}', imputations=imputations, 
+                                            na_check=na_check, imputation_method=imputation_method,
+                                            holdouts=[holdouts[slurm_iter % len(holdouts)]],
+                                            val_metric='auc' if 'BREAST' in ds_name else 'acc')
+                            else:
+                                gam_res_df = pd.DataFrame()
 
 
-                    new_res = pd.concat([res_df, gam_res_df], axis=0)
-                    
-                    if slurm_iter is not None:
-                        new_res.to_csv(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv',index=False)
+                        new_res = pd.concat([res_df, gam_res_df], axis=0)
+                        
+                        if slurm_iter is not None:
+                            new_res.to_csv(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv',index=False)
 
-                    if overall_df is None:
-                        overall_df = new_res
-                    else:
-                        print("res_df: ", res_df)
-                        print("overall_df: ", overall_df)
-                        overall_df = pd.concat([overall_df, new_res], axis=0)
+                        if overall_df is None:
+                            overall_df = new_res
+                        else:
+                            print("res_df: ", res_df)
+                            print("overall_df: ", overall_df)
+                            overall_df = pd.concat([overall_df, new_res], axis=0)
 
-                    if slurm_iter is None:
-                        overall_df.to_csv(f'./full_baseline_results_many_clf_{date.today()}_10_holdouts_{imputation_method}_imp_{imputations}_imp_50_max_coef.csv',index=False)
-                    else:
-                        overall_df.to_csv(f'./parallelized_results/baselines_{date.today()}_iter_{slurm_iter}_{imputations}_imp_all_50_max_coef.csv',index=False)
+                        if slurm_iter is None:
+                            overall_df.to_csv(f'./full_baseline_results_many_clf_{date.today()}_10_holdouts_{imputation_method}_imp_{imputations}_imp_50_max_coef.csv',index=False)
+                        else:
+                            overall_df.to_csv(f'./parallelized_results/baselines_{date.today()}_iter_{slurm_iter}_{imputations}_imp_all_50_max_coef.csv',index=False)
 
     '''for fico_vers in ['FICO_0.25', 'FICO_0.5', 'FICO_0.75']:
         dataset = f'{dataset_base_path}/DATA_REDUCED/{fico_vers}/'#'BREAST_CANCER'
