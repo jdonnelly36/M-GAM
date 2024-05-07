@@ -36,6 +36,8 @@ DATASETS = [
     "PHARYNGITIS_0.25",
     "PHARYNGITIS_0.5",
     "PHARYNGITIS_0.75",
+    "PHARYNGITIS_MAR_25",
+    "PHARYNGITIS_MAR_50",
     "FICO", 
     "FICO_0.25", 
     "FICO_0.5", 
@@ -64,7 +66,7 @@ DATASETS = [
     "HORSE_COLIC_MAR_25",
     "HORSE_COLIC_MAR_50",
     "MIMIC_MAR_25",
-    "MIMIC_MAR_50",
+    "MIMIC_MAR_50"
 ]
 IMPUTATIONS = ["Mean", "MICE", "MissForest", "MIWAE", "GAIN"]
 PERCENTAGES = {
@@ -89,6 +91,8 @@ PERCENTAGES = {
     "PHARYNGITIS_0.25": [0],
     "PHARYNGITIS_0.5": [0],
     "PHARYNGITIS_0.75": [0],
+    "PHARYNGITIS_MAR_25": [0],
+    "PHARYNGITIS_MAR_50": [0],
     "FICO": [0],
     "FICO_0.25": [0],
     "FICO_0.5": [0],
@@ -109,7 +113,15 @@ PERCENTAGES = {
     'HEART_DISEASE_0.5': [0],
     'HEART_DISEASE_0.75': [0],
     'HORSE_COLIC': [0],
-    'APS': [0]
+    'APS': [0], 
+    'CKD_MAR_25': [0],
+    'CKD_MAR_50': [0],
+    'HEART_DISEASE_MAR_25': [0],
+    'HEART_DISEASE_MAR_50': [0],
+    'HORSE_COLIC_MAR_25': [0],
+    'HORSE_COLIC_MAR_50': [0],
+    'MIMIC_MAR_25': [0],
+    'MIMIC_MAR_50': [0]
 }
 N_HOLDOUT_SETS = 3
 N_VAL_SETS = 5  # 5 validation sets per holdout set
