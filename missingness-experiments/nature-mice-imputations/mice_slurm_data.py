@@ -48,13 +48,13 @@ test_miss = train_miss
 metric = 'acc'
 
 overall_mi_intercept = False
-overall_mi_ixn = False
+overall_mi_ixn = True
 specific_mi_intercept = True
-specific_mi_ixn = True
+specific_mi_ixn = False
 
 #we can impute in addition to using indicators. 
 mgam_imputer = None
-mice_augmentation_level = 2 # 0 for no missingness features, 1 for indicators, 2 for interactions
+mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
 sparsity_metric = 'default'
@@ -70,6 +70,8 @@ print(f'Missingness augmentation level: {mice_augmentation_level}')
 print(f'Baseline imputer: {baseline_imputer}')
 print(f'MGAM imputer: {mgam_imputer}')
 print(f'Sparsity metric: {sparsity_metric}')
+print(f'run_indicator_experiments: {run_indicator_experiments}')
+print(f'run_impute_experiments: {run_impute_experiments}')
 
 ### Immutable ###
 use_distinct = True
