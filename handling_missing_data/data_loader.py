@@ -686,7 +686,7 @@ dataloaders["MIMIC_0.75"] = DataLoaderMIMIC_25
 class DataLoaderMIMIC_MAR_25(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA_REDUCED/MIMIC_MAR/0.25")
+        self.datadir = ("DATA/MIMIC_MAR/0.25")
         self.outcome_col = "hospital_expire_flag"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
@@ -697,7 +697,7 @@ dataloaders["MIMIC_MAR_25"] = DataLoaderMIMIC_MAR_25
 class DataLoaderMIMIC_MAR_50(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA_REDUCED/MIMIC_MAR/0.5")
+        self.datadir = ("DATA/MIMIC_MAR/0.5")
         self.outcome_col = "hospital_expire_flag"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
