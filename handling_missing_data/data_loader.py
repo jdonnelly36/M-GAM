@@ -691,7 +691,7 @@ dataloaders["FICO_MAR_50"] = DataLoaderFico_MAR_50
 class DataLoaderMIMIC(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA_REDUCED/MIMIC")
+        self.datadir = ("DATA/MIMIC")
         self.outcome_col = "hospital_expire_flag"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
