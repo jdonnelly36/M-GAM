@@ -42,7 +42,7 @@ run_indicator_experiments = True
 #hyperparameters (TODO: set up with argparse)
 method = 'SMIM'
 num_quantiles = 8
-dataset = 'FICO_MAR_25'
+dataset = 'FICO'
 train_miss = 0
 test_miss = train_miss
 
@@ -277,8 +277,8 @@ for holdout_set in holdouts:
             test = test.replace(encoder.miss_vals, np.nan)
 
             # get train/test mask feats from get_smim_dataset
-            train = pd.concat([train, val])
-            train_mask, val_mask, _ = get_smim_dataset(train[predictors].to_numpy(), train[label].to_numpy(), test[predictors].to_numpy())
+            train_val = pd.concat([train, val])
+            train_mask, val_mask, _ = get_smim_dataset(train_val[predictors].to_numpy(), train_val[label].to_numpy(), test[predictors].to_numpy())
 
             # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
             train_i, val_i, test_i = return_imputation(
