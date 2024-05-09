@@ -1,8 +1,8 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=smim # Job name
+#SBATCH --job-name=baselines # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=logs/smim_%j.out
+#SBATCH --output=logs/baselines_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
@@ -40,9 +40,9 @@ run_impute_experiments = False
 run_indicator_experiments = True
 
 #hyperparameters (TODO: set up with argparse)
-method = 'SMIM'
+method = 'noreg' # 'SMIM', 'noreg'
 num_quantiles = 8
-dataset = 'FICO'
+dataset = 'FICO'#['FICO', 'CKD', 'BREAST_CANCER', 'MIMIC', 'HEART_DISEASE', 'PHARYNGITIS', 'ADULT']
 train_miss = 0
 test_miss = train_miss
 
@@ -54,14 +54,14 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 #we can impute in addition to using indicators. 
-mgam_imputer = None
+mgam_imputer = 'Mean' # None
 mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
 sparsity_metric = 'default'#'default'
 
 #imputation baseline
-baseline_imputer = 'MICE' #GAIN/  Mean/  MICE/  MissForest/  MIWAE/
+baseline_imputer = None # None GAIN/  Mean/  MICE/  MissForest/  MIWAE/
 
 print('--- Hyperparameter Settings ---')
 print(f'Dataset: {dataset}')
@@ -185,85 +185,6 @@ for holdout_set in holdouts:
         # TODO: move outside of this loop; all we need from this loop is the label and predictors, which 
         # are constant for the dataset anyways
 
-        ###########################
-        ### Imputation approach ###
-        ###########################
-        if run_impute_experiments: 
-            if 'BREAST_CANCER' in dataset and val_set == 3 and holdout_set == 6: #missed run at this stage; will have to adjust for plotting as well
-                continue
-            if 'BREAST_CANCER_MAR_25' in dataset and val_set == 2 and holdout_set == 9: #missed run at this stage; will have to adjust for plotting as well
-                continue
-            imputation_train_probs = np.zeros((len(imputations), train.shape[0] + val.shape[0]))
-            imputation_test_probs = np.zeros((len(imputations), test.shape[0]))
-
-            best_lambdas = np.zeros(len(imputations))
-
-            #find best lambda for each imputation, using validation set. 
-                #currently, selects best auc using only one validation fold. 
-                # one possible TODO is to select using 5-fold cross validation
-                # (this may require verifying whether all 5 train/val splits use the same imputation)
-                # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
-            for imputation_idx, imputation in enumerate(imputations):
-                train_i, val_i, test_i = return_imputation(
-                    path_to_imputed(dataset, holdout_set, val_set, imputation), 
-                    label, predictors, train, test, val)
-                
-                imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train, val]), test, 
-                                                                    imputed_train_df = pd.concat([train_i, val_i]), 
-                                                                    imputed_test_df = test_i, validation_size = val_i.shape[0])
-
-                X_train = imputed_and_binned_data[mice_augmentation_level + 0].copy()
-                X_val = imputed_and_binned_data[mice_augmentation_level + 3].copy()
-                X_test = imputed_and_binned_data[mice_augmentation_level + 6].copy()
-                y_train = imputed_and_binned_data[9]
-                y_val = imputed_and_binned_data[12]
-                y_test = imputed_and_binned_data[15]
-                
-                model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
-                                        lambda_grid=lambda_grid, num_lambda=None, num_gamma=None, 
-                                        max_support_size=s_size)
-                
-                (_, _, val_probs, _, _) = eval_model(
-                    model, X_train, X_val, y_train, y_val, lambda_grid[0],
-                    METRIC_FN[metric]
-                    )
-                ensembled_val_aucs = np.zeros(len(lambda_grid[0]))
-                
-                for i in range(len(lambda_grid[0])):
-                    ensembled_val_aucs[i] = METRIC_FN[mice_validation_metric](y_val, val_probs[i])
-                best_lambda = np.argmax(ensembled_val_aucs) #not optimal runtime, but should not be an issue
-                best_lambdas[imputation_idx] = best_lambda
-
-                #now that we know the best lambda for each imputation, we can go through 
-                # and find the probabilities for each imputation, while training on the full train set, 
-                # using these validation-optimal lambdas.
-                imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train, val]), test, imputed_train_df = pd.concat([train_i, val_i]), imputed_test_df = test_i)
-
-                # grab the level of augmentation from the encoder tuple
-                X_train = imputed_and_binned_data[mice_augmentation_level].copy()
-                X_test = imputed_and_binned_data[mice_augmentation_level + 3].copy()
-                y_train = imputed_and_binned_data[6]
-                y_test = imputed_and_binned_data[9]
-
-                model = fastsparsegams.fit(X_train, y_train, loss="Exponential", algorithm="CDPSI", 
-                                        lambda_grid=lambda_grid, 
-                                        num_lambda=None, num_gamma=None, max_support_size=s_size)#inefficient to search whole grid(TODO)
-                
-                (train_probs, _, test_probs, _, _) = eval_model(
-                    model, X_train, X_test, y_train, y_test, lambda_grid[0], 
-                    METRIC_FN[metric]
-                    )
-                imputation_train_probs[imputation_idx] = train_probs[best_lambda]
-                imputation_test_probs[imputation_idx] = test_probs[best_lambda]
-
-            # calculate ensembled metric across all imputations: 
-            ensembled_train_probs = imputation_train_probs.mean(axis=0)
-            ensembled_test_probs = imputation_test_probs.mean(axis=0)
-
-            imputation_ensemble_train_auc[val_set, holdout_set] = METRIC_FN[metric](y_train, ensembled_train_probs)
-
-            imputation_ensemble_test_auc[val_set, holdout_set] = METRIC_FN[metric](y_test, ensembled_test_probs)
-
         ######################################
         ### Missingness Indicator Approach ###
         ######################################
@@ -271,55 +192,121 @@ for holdout_set in holdouts:
             if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
                 continue
 
-            #load non-binarized version of data, no imputation; replace all missing values with np.nan
-            train = train.replace(encoder.miss_vals, np.nan)
-            val = val.replace(encoder.miss_vals, np.nan)
-            test = test.replace(encoder.miss_vals, np.nan)
+            if method == 'SMIM': #TODO: add version for noreg here AND for imputation
+                #load non-binarized version of data, no imputation; replace all missing values with np.nan
+                train_nan = train.replace(encoder.miss_vals, np.nan)
+                val_nan = val.replace(encoder.miss_vals, np.nan)
+                test_nan = test.replace(encoder.miss_vals, np.nan)
 
-            # get train/test mask feats from get_smim_dataset
-            train_val = pd.concat([train, val])
-            train_mask, val_mask, _ = get_smim_dataset(train_val[predictors].to_numpy(), train_val[label].to_numpy(), test[predictors].to_numpy())
+                # get train/test mask feats from get_smim_dataset
+                train_val = pd.concat([train_nan, val_nan])
+                train_mask, val_mask, _ = get_smim_dataset(train_val[predictors].to_numpy(), train_val[label].to_numpy(), test_nan[predictors].to_numpy())
 
-            # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
-            train_i, val_i, test_i = return_imputation(
-                    path_to_mean(dataset, holdout_set, val_set, 0), 
-                    label, predictors, train, test, val)
+                # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
+                if mgam_imputer == None: 
+                    train_i, val_i, test_i = train_nan, val_nan, test_nan
+                else: 
+                    train_i, val_i, test_i = return_imputation(
+                            path_to_imputed(dataset, holdout_set, val_set, 0), 
+                            label, predictors, train, test, val)
 
-            (train_no, train_ind, train_aug, 
-             test_no, test_ind, test_aug, 
-            y_train_no, y_train_ind, y_train_aug, 
-            y_test_no, y_test_ind, y_test_aug, 
-            cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
-                pd.concat([train_i, val_i]), test_i)
+                (train_no, train_ind, train_aug, 
+                test_no, test_ind, test_aug, 
+                y_train_no, y_train_ind, y_train_aug, 
+                y_test_no, y_test_ind, y_test_aug, 
+                cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
+                    pd.concat([train_i, val_i]), test_i)
 
-            # add the mask feats to these binarized datasets, tune & fit logistic regression on this data
-            train_smim = np.concatenate([train_no, train_mask], axis=1)
-            test_smim = np.concatenate([test_no, val_mask], axis=1)
+                # add the mask feats to these binarized datasets, tune & fit logistic regression on this data
+                train_smim = np.concatenate([train_no, train_mask], axis=1)
+                test_smim = np.concatenate([test_no, val_mask], axis=1)
 
-            clf = LogisticRegression(random_state=0)
-            grid_search = GridSearchCV(clf, smim_grid, cv=5)
-            grid_search.fit(train_smim, y_train_no)
-            print("best params: ", grid_search.best_params_)
+                clf = LogisticRegression(random_state=0)
+                grid_search = GridSearchCV(clf, smim_grid, cv=5)
+                grid_search.fit(train_smim, y_train_no)
+                print("best params: ", grid_search.best_params_)
 
-            sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else -1 #not implemented for non-default
+                sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else -1 #not implemented for non-default
 
-            train_auc_indicator[holdout_set] = grid_search.score(train_smim, y_train_no)if metric == 'acc' else -1 #not implemented yet
-            test_auc_indicator[holdout_set] = grid_search.score(test_smim, y_test_no)if metric == 'acc' else -1 #not implemented yet
+                train_auc_indicator[holdout_set] = grid_search.score(train_smim, y_train_no)if metric == 'acc' else -1 #not implemented yet
+                test_auc_indicator[holdout_set] = grid_search.score(test_smim, y_test_no)if metric == 'acc' else -1 #not implemented yet
+
+            else:
+                # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
+                # TODO: try a version with 0-imputation
+                # TODO: try versions with any underlying imputations
+                if mgam_imputer == None: 
+                    train_i, val_i, test_i = train, val, test
+                else: 
+                    train_i, val_i, test_i = return_imputation(
+                        path_to_imputed(dataset, holdout_set, val_set, 0), 
+                        label, predictors, train, test, val)
+
+                (train_no, train_ind, train_aug, 
+                test_no, test_ind, test_aug, 
+                y_train_no, y_train_ind, y_train_aug, 
+                y_test_no, y_test_ind, y_test_aug, 
+                cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
+                    pd.concat([train_i, val_i]), test_i)
+
+                # tune & fit logistic regression on data w/o missingness indicators
+                clf = LogisticRegression(random_state=0)
+                grid_search = GridSearchCV(clf, smim_grid, cv=5)
+                grid_search.fit(train_no, y_train_no)
+                print("best params: ", grid_search.best_params_)
+
+                sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else -1 #not implemented for non-default
+
+                train_auc_indicator[holdout_set] = grid_search.score(train_no, y_train_no)if metric == 'acc' else -1 #not implemented yet
+                test_auc_indicator[holdout_set] = grid_search.score(test_no, y_test_no)if metric == 'acc' else -1 #not implemented yet
 
 #save data to csv: 
 
-results_path = f'experiment_data/{dataset}{q_str}/SMIM'
+# results_path = f'experiment_data/{dataset}{q_str}/{method}'
+# results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
+# if train_miss != 0 or test_miss != 0: 
+#     results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
+
+# MICE_results_path = f'{results_path}/{s_size}'
+# if mice_augmentation_level > 0: 
+#     MICE_results_path += f'/{mice_augmentation_level}'
+# if baseline_imputer != 'MICE':
+#     MICE_results_path += f'/{baseline_imputer}'
+# if not os.path.exists(MICE_results_path):
+#     os.makedirs(MICE_results_path)
+
+# if sparsity_metric != 'default': 
+#     results_path = f'{results_path}/sparsity_{sparsity_metric}'
+# if mgam_imputer != None: 
+#     results_path = f'{results_path}/imputer_{mgam_imputer}'
+# if not os.path.exists(results_path):
+#     os.makedirs(results_path)
+
+# if run_indicator_experiments: 
+#     np.savetxt(f'{results_path}/train_{metric}_aug.csv', train_auc_aug)
+#     np.savetxt(f'{results_path}/train_{metric}_indicator.csv', train_auc_indicator)
+#     np.savetxt(f'{results_path}/train_{metric}_no_missing.csv', train_auc_no_missing)
+#     np.savetxt(f'{results_path}/test_{metric}_aug.csv', test_auc_aug)
+#     np.savetxt(f'{results_path}/test_{metric}_indicator.csv', test_auc_indicator)
+#     np.savetxt(f'{results_path}/test_{metric}_no_missing.csv', test_auc_no_missing)
+#     np.savetxt(f'{results_path}/nllambda.csv', -np.log(lambda_grid[0]))
+#     np.savetxt(f'{results_path}/sparsity_aug.csv', sparsity_aug)
+#     np.savetxt(f'{results_path}/sparsity_indicator.csv', sparsity_indicator)
+#     np.savetxt(f'{results_path}/sparsity_no_missing.csv',sparsity_no_missing)
+# if run_impute_experiments: 
+#     np.savetxt(f'{MICE_results_path}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
+#     np.savetxt(f'{MICE_results_path}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
+
+
+
+results_path = f'experiment_data/{dataset}/{method}'
+## possibly-antiquated hyperparameters still needed to preserve file structure of experiment: 
 results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
 if train_miss != 0 or test_miss != 0: 
     results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
 
-MICE_results_path = f'{results_path}/{s_size}'
-if mice_augmentation_level > 0: 
-    MICE_results_path += f'/{mice_augmentation_level}'
-if baseline_imputer != 'MICE':
-    MICE_results_path += f'/{baseline_imputer}'
-if not os.path.exists(MICE_results_path):
-    os.makedirs(MICE_results_path)
+if baseline_imputer != 'Mean': #let default be mean imputation for now
+    results_path += f'/impute_{baseline_imputer}'
 
 if sparsity_metric != 'default': 
     results_path = f'{results_path}/sparsity_{sparsity_metric}'
@@ -328,6 +315,7 @@ if mgam_imputer != None:
 if not os.path.exists(results_path):
     os.makedirs(results_path)
 
+# overkill on saved files
 if run_indicator_experiments: 
     np.savetxt(f'{results_path}/train_{metric}_aug.csv', train_auc_aug)
     np.savetxt(f'{results_path}/train_{metric}_indicator.csv', train_auc_indicator)
@@ -339,12 +327,4 @@ if run_indicator_experiments:
     np.savetxt(f'{results_path}/sparsity_aug.csv', sparsity_aug)
     np.savetxt(f'{results_path}/sparsity_indicator.csv', sparsity_indicator)
     np.savetxt(f'{results_path}/sparsity_no_missing.csv',sparsity_no_missing)
-if run_impute_experiments: 
-    np.savetxt(f'{MICE_results_path}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
-    np.savetxt(f'{MICE_results_path}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
-
-
-#can also try pickle file of all hyperparameters, and save to a folder with corresponding hash
-
-
 print('successfully finished execution')
