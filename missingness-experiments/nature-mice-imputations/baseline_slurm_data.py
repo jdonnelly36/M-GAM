@@ -293,8 +293,8 @@ for holdout_set in holdouts:
                 pd.concat([train_i, val_i]), test_i)
 
             # add the mask feats to these binarized datasets, tune & fit logistic regression on this data
-            train_smim = pd.concat([train_no, train_mask], axis=1)
-            test_smim = pd.concat([test_no, val_mask], axis=1)
+            train_smim = np.concatenate([train_no.values(), train_mask], axis=1)
+            test_smim = np.concatenate([test_no.values(), val_mask], axis=1)
 
             clf = LogisticRegression(random_state=0)
             grid_search = GridSearchCV(clf, smim_grid, cv=5)
