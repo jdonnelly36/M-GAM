@@ -375,7 +375,7 @@ class DataLoaderAdult(_DataLoaderBase):
 
     def __init__(self):
         super().__init__()
-        self.datadir = "DATA/ADULT"
+        self.datadir = "DATA_REDUCED/ADULT"
         self.outcome_col = "income"
 
     def extract_cat_vars(self, one_hot: bool) -> tuple[list[int], list[int]]:
@@ -398,6 +398,33 @@ class DataLoaderAdult(_DataLoaderBase):
         return self.ord_to_onehot_multicat(data)
 
 dataloaders["ADULT"] = DataLoaderAdult
+
+class DataLoaderAdult_25(DataLoaderAdult):
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/ADULT_0.25"
+
+dataloaders["ADULT_0.25"] = DataLoaderAdult_25
+
+class DataLoaderAdult_50(DataLoaderAdult):
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/ADULT_0.5"
+
+dataloaders["ADULT_0.5"] = DataLoaderAdult_50
+
+class DataLoaderAdult_75(DataLoaderAdult):
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/ADULT_0.75"
+
+dataloaders["ADULT_0.75"] = DataLoaderAdult_75
 
 class DataLoaderAdult_MAR_25(DataLoaderAdult):
     cols_path = "../adult_cols.json"

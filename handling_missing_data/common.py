@@ -68,6 +68,9 @@ DATASETS = [
     "MIMIC_MAR_25",
     "MIMIC_MAR_50", 
     "ADULT", 
+    "ADULT_0.25", 
+    "ADULT_0.5", 
+    "ADULT_0.75", 
     "ADULT_MAR_25",
     "ADULT_MAR_50"
 ]
@@ -126,6 +129,9 @@ PERCENTAGES = {
     'MIMIC_MAR_25': [0],
     'MIMIC_MAR_50': [0],
     "ADULT": [0], 
+    "ADULT_0.25": [0], 
+    "ADULT_0.5": [0], 
+    "ADULT_0.75": [0], 
     "ADULT_MAR_25": [0],
     "ADULT_MAR_50": [0]
 }

@@ -29,6 +29,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn import svm
+import os
 import xgboost as xgb
 
 from datetime import date
@@ -218,6 +219,7 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
                 metric_dict['model_type'] = metric_dict['model_type'] + [model_initializer.__name__]
                 metric_dict['missingness_handling'] = metric_dict['missingness_handling'] + [imputation_method]
                 metric_dict['holdout_set'] = metric_dict['holdout_set'] + [holdout_set]
+                #TODO: Change the mean below to a sum, because right now we're being overly generous to the baselines
                 metric_dict['mean_fit_time'] = metric_dict['mean_fit_time'] + [np.mean(fit_times)]
                 metric_dict['std_fit_time'] = metric_dict['std_fit_time'] + [np.std(fit_times)]
                 metric_dict['dataset'] = metric_dict['dataset'] + [dataset_name]
@@ -538,9 +540,9 @@ if __name__ == '__main__':
         for subsample in ['', '_0.25', '_0.5', '_0.75']:
             for ds_name in ['ADULT', 'BREAST_CANCER', 'MIMIC']:
     """
-    for imputation_method in ['MIWAE']:
+    for imputation_method in ['Mean', 'MICE', 'MissForest', 'MIWAE']:
         for subsample in ['_0.5', '_0.75', '', '_0.25']:
-            for ds_name in ['CKD', 'PHARYNGITIS', 'FICO', 'HEART_DISEASE']:
+            for ds_name in ['PHARYNGITIS', 'FICO', 'HEART_DISEASE', 'BREAST_CANCER', 'MIMIC', 'ADULT', 'CKD']:
                 ds_name = ds_name + subsample
                 print(f"Running for {imputation_method}, {ds_name}")
                 #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
@@ -550,6 +552,8 @@ if __name__ == '__main__':
                     dataset = f'{dataset_base_path}/DATA_REDUCED/{ds_name}/'#'BREAST_CANCER'
                 for train_rate in [0]:
                     for test_rate in [0]:
+                        if os.path.exists(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv'):
+                            continue
                         dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
                         dataset_suffix = f''
 
