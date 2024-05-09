@@ -54,7 +54,7 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 #we can impute in addition to using indicators. 
-mgam_imputer = 'default'
+mgam_imputer = None
 mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
@@ -278,7 +278,7 @@ for holdout_set in holdouts:
 
             # get train/test mask feats from get_smim_dataset
             train = pd.concat([train, val])
-            train_mask, val_mask = get_smim_dataset(train[predictors], test[predictors], train[label])
+            train_mask, val_mask, _ = get_smim_dataset(train[predictors].to_numpy(), train[label].to_numpy(), test[predictors].to_numpy())
 
             # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
             train_i, val_i, test_i = return_imputation(
