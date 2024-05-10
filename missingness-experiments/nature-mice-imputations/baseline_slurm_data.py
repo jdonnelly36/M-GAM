@@ -36,8 +36,8 @@ M_GAM_IMPUTERS = {
 }
 
 #control flow variables
-run_impute_experiments = False
-run_indicator_experiments = True
+run_impute_experiments = True
+run_indicator_experiments = False
 
 #hyperparameters (TODO: set up with argparse)
 method = 'noreg' # 'SMIM', 'noreg'
@@ -54,14 +54,14 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 #we can impute in addition to using indicators. 
-mgam_imputer = 'Mean' # None
+mgam_imputer = None
 mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
 sparsity_metric = 'default'#'default'
 
 #imputation baseline
-baseline_imputer = None # None GAIN/  Mean/  MICE/  MissForest/  MIWAE/
+baseline_imputer = "MICE" # None GAIN/  Mean/  MICE/  MissForest/  MIWAE/
 
 print('--- Hyperparameter Settings ---')
 print(f'Dataset: {dataset}')
@@ -184,7 +184,52 @@ for holdout_set in holdouts:
         # or add functionality to prune out non-occurring missingness values in binarizer
         # TODO: move outside of this loop; all we need from this loop is the label and predictors, which 
         # are constant for the dataset anyways
+        ###########################
+        ### Imputation approach ###
+        ###########################
+        if run_impute_experiments: 
+            if 'BREAST_CANCER' in dataset and val_set == 3 and holdout_set == 6: #missed run at this stage; will have to adjust for plotting as well
+                continue
+            if 'BREAST_CANCER_MAR_25' in dataset and val_set == 2 and holdout_set == 9: #missed run at this stage; will have to adjust for plotting as well
+                continue
+            imputation_train_probs = np.zeros((len(imputations), train.shape[0] + val.shape[0]))
+            imputation_test_probs = np.zeros((len(imputations), test.shape[0]))
 
+            best_models_per_imputation = []
+
+            #find best lambda for each imputation, using validation set. 
+                #currently, selects best auc using only one validation fold. 
+                # one possible TODO is to select using 5-fold cross validation
+                # (this may require verifying whether all 5 train/val splits use the same imputation)
+                # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
+            for imputation_idx, imputation in enumerate(imputations):
+                train_i, val_i, test_i = return_imputation(
+                    path_to_imputed(dataset, holdout_set, val_set, imputation), 
+                    label, predictors, train, test, val)
+                
+                imputed_and_binned_data = encoder.binarize_and_augment(pd.concat([train, val]), test, imputed_train_df = pd.concat([train_i, val_i]), imputed_test_df = test_i)
+
+                # grab the level of augmentation from the encoder tuple
+                X_train = imputed_and_binned_data[mice_augmentation_level].copy()
+                X_test = imputed_and_binned_data[mice_augmentation_level + 3].copy()
+                y_train = imputed_and_binned_data[6]
+                y_test = imputed_and_binned_data[9]
+                
+                # tune & fit logistic regression on data
+                clf = LogisticRegression(random_state=0)
+                grid_search = GridSearchCV(clf, smim_grid, cv=5)
+                grid_search.fit(X_train, y_train)
+                
+                imputation_train_probs[imputation_idx] = grid_search.predict_proba(X_train)[:, 1]
+                imputation_test_probs[imputation_idx] = grid_search.predict_proba(X_test)[:, 1]
+
+            # calculate ensembled metric across all imputations: 
+            ensembled_train_probs = imputation_train_probs.mean(axis=0)
+            ensembled_test_probs = imputation_test_probs.mean(axis=0)
+
+            imputation_ensemble_train_auc[val_set, holdout_set] = METRIC_FN[metric](y_train, ensembled_train_probs)
+
+            imputation_ensemble_test_auc[val_set, holdout_set] = METRIC_FN[metric](y_test, ensembled_test_probs)
         ######################################
         ### Missingness Indicator Approach ###
         ######################################
@@ -203,7 +248,7 @@ for holdout_set in holdouts:
                 train_mask, val_mask, _ = get_smim_dataset(train_val[predictors].to_numpy(), train_val[label].to_numpy(), test_nan[predictors].to_numpy())
 
                 # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
-                if mgam_imputer == None: 
+                if baseline_imputer == None: 
                     train_i, val_i, test_i = train_nan, val_nan, test_nan
                 else: 
                     train_i, val_i, test_i = return_imputation(
@@ -235,7 +280,7 @@ for holdout_set in holdouts:
                 # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
                 # TODO: try a version with 0-imputation
                 # TODO: try versions with any underlying imputations
-                if mgam_imputer == None: 
+                if baseline_imputer == None: 
                     train_i, val_i, test_i = train, val, test
                 else: 
                     train_i, val_i, test_i = return_imputation(
@@ -262,42 +307,6 @@ for holdout_set in holdouts:
 
 #save data to csv: 
 
-# results_path = f'experiment_data/{dataset}{q_str}/{method}'
-# results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
-# if train_miss != 0 or test_miss != 0: 
-#     results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
-
-# MICE_results_path = f'{results_path}/{s_size}'
-# if mice_augmentation_level > 0: 
-#     MICE_results_path += f'/{mice_augmentation_level}'
-# if baseline_imputer != 'MICE':
-#     MICE_results_path += f'/{baseline_imputer}'
-# if not os.path.exists(MICE_results_path):
-#     os.makedirs(MICE_results_path)
-
-# if sparsity_metric != 'default': 
-#     results_path = f'{results_path}/sparsity_{sparsity_metric}'
-# if mgam_imputer != None: 
-#     results_path = f'{results_path}/imputer_{mgam_imputer}'
-# if not os.path.exists(results_path):
-#     os.makedirs(results_path)
-
-# if run_indicator_experiments: 
-#     np.savetxt(f'{results_path}/train_{metric}_aug.csv', train_auc_aug)
-#     np.savetxt(f'{results_path}/train_{metric}_indicator.csv', train_auc_indicator)
-#     np.savetxt(f'{results_path}/train_{metric}_no_missing.csv', train_auc_no_missing)
-#     np.savetxt(f'{results_path}/test_{metric}_aug.csv', test_auc_aug)
-#     np.savetxt(f'{results_path}/test_{metric}_indicator.csv', test_auc_indicator)
-#     np.savetxt(f'{results_path}/test_{metric}_no_missing.csv', test_auc_no_missing)
-#     np.savetxt(f'{results_path}/nllambda.csv', -np.log(lambda_grid[0]))
-#     np.savetxt(f'{results_path}/sparsity_aug.csv', sparsity_aug)
-#     np.savetxt(f'{results_path}/sparsity_indicator.csv', sparsity_indicator)
-#     np.savetxt(f'{results_path}/sparsity_no_missing.csv',sparsity_no_missing)
-# if run_impute_experiments: 
-#     np.savetxt(f'{MICE_results_path}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
-#     np.savetxt(f'{MICE_results_path}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
-
-
 
 results_path = f'experiment_data/{dataset}/{method}'
 ## possibly-antiquated hyperparameters still needed to preserve file structure of experiment: 
@@ -308,12 +317,24 @@ if train_miss != 0 or test_miss != 0:
 if baseline_imputer != 'Mean': #let default be mean imputation for now
     results_path += f'/impute_{baseline_imputer}'
 
+MICE_results_path = f'{results_path}/100'#100 lets us keep things consistent with prior folder structures
+if mice_augmentation_level > 0: 
+    MICE_results_path += f'/{mice_augmentation_level}'
+if baseline_imputer != 'MICE':
+    MICE_results_path += f'/{baseline_imputer}'
+if not os.path.exists(MICE_results_path):
+    os.makedirs(MICE_results_path)
+
 if sparsity_metric != 'default': 
     results_path = f'{results_path}/sparsity_{sparsity_metric}'
 if mgam_imputer != None: 
     results_path = f'{results_path}/imputer_{mgam_imputer}'
 if not os.path.exists(results_path):
     os.makedirs(results_path)
+
+if run_impute_experiments:
+    np.savetxt(f'{MICE_results_path}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
+    np.savetxt(f'{MICE_results_path}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
 
 # overkill on saved files
 if run_indicator_experiments: 

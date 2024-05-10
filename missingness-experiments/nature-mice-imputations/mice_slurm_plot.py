@@ -24,7 +24,7 @@ from cycler import cycler
 plt.rcParams["axes.prop_cycle"] = cycler('color', ['#1f77b4', '#ff7f0e', '#808080'])
 # plt.rcParams.update({'font.size': 16})
 
-dataset = 'FICO'
+dataset = 'FICO_MAR_50'
 metric = 'acc'
 filetype = 'png'
 
@@ -34,10 +34,10 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 mgam_imputer = None
-mice_augmentation_level = 1 # 0 for no missingness features, 1 for indicators, 2 for interactions
+mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
-sparsity_metric = 'default'
-baseline_imputer = 'MICE'
+sparsity_metric = 'default'# 'default', 'num_variables'
+baseline_imputers = ['MICE']#['MICE', 'Mean', 'MIWAE', 'MissForest']
 
 DATASET_NAME = {
     'FICO': 'FICO',
@@ -54,6 +54,8 @@ DATASET_NAME = {
     'SYNTHETIC_CATEGORICAL_MAR': 'Synthetic Categorical MAR',
     'SYNTHETIC_CATEGORICAL_MAR_50': 'Synthetic Categorical data, MAR missingness 0.5',
     'SYNTHETIC_CATEGORICAL_MAR_25': 'Synthetic Categorical data, MAR missingness 0.5',
+    'HEART_DISEASE': 'Heart Disease',
+    'CKD': 'UCI CKD'
 }
 
 METRIC_NAME = {
@@ -66,9 +68,15 @@ METRIC_NAME = {
 s_size_folder = '100'
 train_miss = 0
 test_miss = train_miss
-s_size_cutoff = 52.5
+if sparsity_metric == 'default': 
+    s_size_cutoff = 52.5 if dataset != 'CKD' else 15
+else:
+    s_size_cutoff = 25
 num_quantiles = 8
 quantile_addition = ''
+
+# Plot titles, etc
+x_title = ('# Nonzero Coefficients' if sparsity_metric=='default' else '# Nonzero Shape Functions')
 
 #load data files from csv: 
 
@@ -80,10 +88,13 @@ if train_miss != 0 or test_miss != 0:
 if num_quantiles != 8: 
      res_dir = f'{res_dir}/q{num_quantiles}'
 
-mice_res_dir = f'{res_dir}/{s_size_folder}'+(
-     f'/{mice_augmentation_level}' if mice_augmentation_level > 0 else '')+(
-        f'/{baseline_imputer}' if baseline_imputer != 'MICE' else ''
-     )
+imputation_res_dirs = []
+for imputer in baseline_imputers: 
+    imp_res_dir = f'{res_dir}/{s_size_folder}'+(
+        f'/{mice_augmentation_level}' if mice_augmentation_level > 0 else '')+(
+            f'/{imputer}' if imputer != 'MICE' else ''
+        )
+    imputation_res_dirs.append(imp_res_dir)
 
 if sparsity_metric != 'default': 
     res_dir = f'{res_dir}/sparsity_{sparsity_metric}'
@@ -96,18 +107,23 @@ train_auc_no_missing = np.loadtxt(f'{res_dir}/train_{metric}_no_missing.csv')
 test_auc_aug = np.loadtxt(f'{res_dir}/test_{metric}_aug.csv')
 test_auc_indicator = np.loadtxt(f'{res_dir}/test_{metric}_indicator.csv')
 test_auc_no_missing = np.loadtxt(f'{res_dir}/test_{metric}_no_missing.csv')
-imputation_ensemble_train_auc = np.loadtxt(f'{mice_res_dir}/imputation_ensemble_train_{metric}.csv')
-imputation_ensemble_test_auc = np.loadtxt(f'{mice_res_dir}/imputation_ensemble_test_{metric}.csv')
 nllambda = np.loadtxt(f'{res_dir}/nllambda.csv')
 
 sparsity_aug = np.loadtxt(f'{res_dir}/sparsity_aug.csv')
 sparsity_indicator = np.loadtxt(f'{res_dir}/sparsity_indicator.csv')
 sparsity_no_missing = np.loadtxt(f'{res_dir}/sparsity_no_missing.csv')
 
-#filter out any skipped (0 valued) runs of imputation (TODO: verify this has an effect for breca)
-# imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
-imputation_ensemble_train_auc = imputation_ensemble_train_auc[imputation_ensemble_train_auc > 0]
-imputation_ensemble_test_auc[imputation_ensemble_test_auc == 0] = np.nan
+imputation_results_test = []
+imputation_results_train = []
+for imp_res_dir in imputation_res_dirs: 
+    imputation_ensemble_train_auc = np.loadtxt(f'{imp_res_dir}/imputation_ensemble_train_{metric}.csv')
+    imputation_ensemble_test_auc = np.loadtxt(f'{imp_res_dir}/imputation_ensemble_test_{metric}.csv')
+    #filter out any skipped (0 valued) runs of imputation (TODO: verify this has an effect for breca)
+    # imputation_ensemble_test_auc = imputation_ensemble_test_auc[imputation_ensemble_test_auc > 0]
+    imputation_ensemble_train_auc = imputation_ensemble_train_auc[imputation_ensemble_train_auc > 0]
+    imputation_ensemble_test_auc[imputation_ensemble_test_auc == 0] = np.nan
+    imputation_results_test.append(imputation_ensemble_test_auc)
+    imputation_results_train.append(imputation_ensemble_train_auc)
 
 no_timeouts_aug = (train_auc_aug > 0).all(axis=0)
 sparsity_aug = sparsity_aug[:, no_timeouts_aug]
@@ -125,14 +141,14 @@ test_auc_indicator = test_auc_indicator[:, no_timeouts_indicator]
 # test_auc_no_missing = test_auc_no_missing[:, no_timeouts_no_missing]
 
 fig_dir = f'./figs/{dataset}/'
-fig_dir = f'{fig_dir}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}/'
+fig_dir = f'{fig_dir}distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}/'
 fig_dir = f'{fig_dir}{s_size_folder}/'
 fig_dir += f'{mice_augmentation_level}/' if mice_augmentation_level > 0 else ''
-fig_dir += f'{baseline_imputer}/' if baseline_imputer != 'MICE' else ''
+fig_dir += f'{baseline_imputers}/' if baseline_imputers != ['MICE'] else ''
 if sparsity_metric != 'default': 
-    fig_dir = f'{fig_dir}/sparsity_{sparsity_metric}'
+    fig_dir = f'{fig_dir}sparsity_{sparsity_metric}/'
 if mgam_imputer != None: 
-    fig_dir = f'{fig_dir}/imputer_{mgam_imputer}'
+    fig_dir = f'{fig_dir}imputer_{mgam_imputer}/'
 
 if train_miss != 0 or test_miss != 0: 
     fig_dir = f'{fig_dir}train_{train_miss}/test_{test_miss}/'
@@ -165,7 +181,7 @@ def plot_with_break(is_train = True):
         train_or_test_str = 'Train' if is_train else 'Test'
         vals = TRAIN_VALS if is_train else TEST_VALS
 
-        f.suptitle(f'{train_or_test_str} {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset{quantile_addition}')
+        f.suptitle(f'{train_or_test_str} {METRIC_NAME[metric]} vs {x_title} \n for {dataset} dataset{quantile_addition}')
         # ax.hlines(imputation_ensemble_train_auc.mean(), 0,
         #            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
         #            label='mean performance, ensemble of 10 MICE imputations',
@@ -174,19 +190,29 @@ def plot_with_break(is_train = True):
         # uncertainty_bands_subplot(vals[1][0], vals[1][1], 'Missingness with interactions', ax)
         uncertainty_bands_subplot(vals[2][0], vals[2][1], 'Missingness indicators', ax) 
         uncertainty_bands_subplot(vals[1][0], vals[1][1], 'Missingness with interactions', ax)
-        ax.set_xlabel('# Nonzero Coefficients')
+        ax.set_xlabel(x_title)
         ax.set_ylabel(f'{train_or_test_str} {METRIC_NAME[metric]}')
         # ax.legend()
 
-        # ax2.set_title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
-        ax2.hlines(np.nanmean(imputation_ensemble_train_auc) if is_train else np.nanmean(imputation_ensemble_test_auc), 0,
-                1000, linestyles='dashed',
-                label= 'MICE',#'mean performance, ensemble of 10 MICE imputations',
-                color='grey') #TODO: add error bars? 
-        # uncertainty_bands_subplot(sparsity_no_missing, train_auc_no_missing, 'No Missingness \n Handling', ax2)
+        for idx, imp_result in enumerate(imputation_results_train if is_train else imputation_results_test): 
+            #plot a point with an error bar at x=201: 
+            plot_position = 200 + (idx+1)/(len(baseline_imputers)+1)
+            marker=['o', '^', '>', 'v', '<'][idx % 5]
+            colour = ['grey', 'purple', 'green', 'blue', 'red'][idx % 5]
+            # ax2.plot(plot_position, np.nanmean(imp_result), marker=marker, color = 'black')
+            eb = ax2.errorbar(plot_position, np.nanmean(imp_result), yerr=np.nanstd(imp_result)/np.sqrt(10), xerr = 1, 
+                              color=colour, marker=marker, label=baseline_imputers[idx])
+            # eb[-1][0].set_linestyle('-') 
+            eb[-1][1].set_linestyle('--') 
+            # ax2.hlines(np.nanmean(imp_result), 0,
+            #         1000, linestyles='dashed',
+            #         #label= baseline_imputers[idx],#'mean performance, ensemble of 10 MICE imputations',
+            #         color='grey')
+            # if idx == 0: 
+            #     uncertainty_bands_subplot_mice(imp_result, None, ax2)
+            # uncertainty_bands_subplot(sparsity_no_missing, train_auc_no_missing, 'No Missingness \n Handling', ax2)
         uncertainty_bands_subplot(sparsity_indicator, train_auc_indicator, 'Indicators', ax2) 
         uncertainty_bands_subplot(sparsity_aug, train_auc_aug, 'Interactions', ax2)
-        uncertainty_bands_subplot_mice(imputation_ensemble_test_auc, None, ax2)
         ax2.set_xlabel('Non-interpretable \n models')
         ax2.set_xticks([]) # need to replace xticks with infinity
 
@@ -231,7 +257,7 @@ plot_with_break(False)
 
 plt.clf()
 
-plt.title(f'Train {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {dataset} dataset')
+plt.title(f'Train {METRIC_NAME[metric]} vs {x_title} \n for {dataset} dataset')
 plt.hlines(imputation_ensemble_train_auc.mean(), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
            label='mean performance, ensemble of 10 MICE imputations',
@@ -240,7 +266,7 @@ plt.hlines(imputation_ensemble_train_auc.mean(), 0,
 # uncertainty_bands(sparsity_aug, train_auc_aug, 'Missingness with interactions')
 uncertainty_bands(sparsity_indicator, train_auc_indicator, 'Missingness indicators') 
 uncertainty_bands(sparsity_aug, train_auc_aug, 'Missingness with interactions')
-plt.xlabel('# Nonzero Coefficients')
+plt.xlabel(x_title)
 plt.ylabel(f'Train {METRIC_NAME[metric]}')
 plt.legend()
 plt.xlim(0,s_size_cutoff)
@@ -249,7 +275,7 @@ plt.savefig(f'{fig_dir}mice_slurm_train_{metric}.{filetype}')
 
 plt.clf()
 
-plt.title(f'Test {METRIC_NAME[metric]} vs # Nonzero Coefficients \n for {DATASET_NAME[dataset]} Dataset')
+plt.title(f'Test {METRIC_NAME[metric]} vs {x_title} \n for {DATASET_NAME[dataset]} Dataset')
 plt.hlines(np.nanmean(imputation_ensemble_test_auc), 0,
            max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
            label='mean performance, ensemble of 10 MICE imputations', 
@@ -258,11 +284,12 @@ plt.hlines(np.nanmean(imputation_ensemble_test_auc), 0,
 # uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
 uncertainty_bands(sparsity_indicator, test_auc_indicator, 'Missingness indicators')
 uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
-plt.xlabel('# Nonzero Coefficients')
+plt.xlabel(x_title)
 plt.ylabel(f'Test {METRIC_NAME[metric]}')
 plt.legend()
-plt.xlim(0,52.5)
+plt.xlim(0,s_size_cutoff)
 # plt.ylim(0.9, 2.2)
 plt.savefig(f'{fig_dir}mice_slurm_test_{metric}.{filetype}')
 
 print('successfully finished execution')
+print(f'fig dir: {fig_dir}')

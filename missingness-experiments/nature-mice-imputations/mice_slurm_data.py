@@ -6,8 +6,9 @@
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#SBATCH  -x linux[41-60]
+#not SBATCH  -x linux[41-60]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
+#SBATCH --partition=compsci
 
 import os
 import sys
@@ -32,11 +33,11 @@ M_GAM_IMPUTERS = {
 
 #control flow variables
 run_impute_experiments = True
-run_indicator_experiments = True
+run_indicator_experiments = False
 
 #hyperparameters (TODO: set up with argparse)
 num_quantiles = 8
-dataset = 'BREAST_CANCER_MAR_50'
+dataset = 'FICO_MAR_25'
 train_miss = 0
 test_miss = train_miss
 
@@ -48,7 +49,7 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 
 #we can impute in addition to using indicators. 
-mgam_imputer = None
+mgam_imputer = 'default'
 mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
 
 # multiple sparsity metrics
