@@ -370,6 +370,10 @@ dataloaders["NHSX_COVID19"] = DataLoaderNHSX
 
 class DataLoaderAdult(_DataLoaderBase):
     cols = None
+    onehot_encoder = None
+    ordinal_encoder = None
+    encoded_colnames = None
+    cat_colnames = None
     cols_path = "adult_cols.json"
     factor_levels_path = "factor_levels.json"
 
