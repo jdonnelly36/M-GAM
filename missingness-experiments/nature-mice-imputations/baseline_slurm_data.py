@@ -1,15 +1,4 @@
 #!/home/users/ham51/.venvs/fastsparsebuild/bin/python
-#SBATCH --job-name=baselines # Job name
-#SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=ham51@duke.edu     # Where to send mail
-#SBATCH --output=logs/baselines_%j.out
-#SBATCH --ntasks=1                 # Run on a single Node
-#SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
-#SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60]
-#SBATCH --time=96:00:00               # Time limit hrs:min:sec
-#SBATCH --partition=compsci
-
 import os
 import sys
 import re
@@ -18,63 +7,52 @@ sys.path.append(os.getcwd())
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-import fastsparsegams
 import matplotlib.pyplot as plt
 from mice_utils import eval_model, return_imputation, eval_model_by_clusters
 from binarizer import Binarizer
 from mice_utils import get_smim_dataset
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
+import argparse
 
-### Constants
-# Specifies approaches used for imputer underlying the MGAM approach
-# (usually None, but we need alternative options for one figure)
-M_GAM_IMPUTERS = {
-    None: None,#lambda x : 0, # corresponds to encoding missing values as False
-    'mean': np.mean,
-    'median': np.median
-}
+# Create the argument parser
+parser = argparse.ArgumentParser(description='Baseline Slurm Data')
 
-#control flow variables
-run_impute_experiments = True
-run_indicator_experiments = False
+# Add the command line arguments
+parser.add_argument('--run_impute_experiments', action='store_true', help='Run impute experiments')
+parser.add_argument('--run_indicator_experiments', action='store_true', help='Run indicator experiments')
+parser.add_argument('--method', type=str, default='noreg', help='Method (SMIM or noreg)')
+parser.add_argument('--dataset', type=str, default='FICO', help='Dataset')
+parser.add_argument('--metric', type=str, default='acc', help='Metric')
+parser.add_argument('--mice_augmentation_level', type=int, default=0, help='Imputation augmentation level. 0, 1 (indicator), or 2(interaction) are options')
+parser.add_argument('--sparsity_metric', type=str, default='default', help='Sparsity metric')
+parser.add_argument('--baseline_imputer', type=str, default='Mean', help='Baseline imputer')
+parser.add_argument('--baseline_aug_level', type=int, default=0, help='Baseline augmentation level, for baselines where we need to measure sparsity. 0, 1 (indicator), or 2(interaction) are options')
+parser.add_argument('--rerun', action='store_true', help='flag to force a rerun if files already exist. Without this flag, experiments are not repeated')
 
-#hyperparameters (TODO: set up with argparse)
-method = 'noreg' # 'SMIM', 'noreg'
-num_quantiles = 8
-dataset = 'FICO'#['FICO', 'CKD', 'BREAST_CANCER', 'MIMIC', 'HEART_DISEASE', 'PHARYNGITIS', 'ADULT']
-train_miss = 0
-test_miss = train_miss
+# Parse the command line arguments
+args = parser.parse_args()
 
-metric = 'acc'
+# Assign the command line arguments to variables
+run_impute_experiments = args.run_impute_experiments
+run_indicator_experiments = args.run_indicator_experiments
+rerun = args.rerun
+method = args.method
+dataset = args.dataset
+metric = args.metric
+mice_augmentation_level = args.mice_augmentation_level
+sparsity_metric = args.sparsity_metric
+baseline_imputer = args.baseline_imputer
+baseline_aug_level = args.baseline_aug_level
 
+### Immutable ###
 overall_mi_intercept = False
 overall_mi_ixn = False
 specific_mi_intercept = True
 specific_mi_ixn = True
-
-#we can impute in addition to using indicators. 
-mgam_imputer = None
-mice_augmentation_level = 0 # 0 for no missingness features, 1 for indicators, 2 for interactions
-
-# multiple sparsity metrics
-sparsity_metric = 'default'#'default'
-
-#imputation baseline
-baseline_imputer = "MICE" # None GAIN/  Mean/  MICE/  MissForest/  MIWAE/
-
-print('--- Hyperparameter Settings ---')
-print(f'Dataset: {dataset}')
-print(f'Quantiles: {num_quantiles}')
-print(f'Distinctness pattern: (overall intercept, overall ixn, specific intercept, specific interaction): ({overall_mi_intercept}, {overall_mi_ixn}, {specific_mi_intercept}, {specific_mi_ixn})')
-print(f'Missingness augmentation level: {mice_augmentation_level}')
-print(f'Baseline imputer: {baseline_imputer}')
-print(f'MGAM imputer: {mgam_imputer}')
-print(f'Sparsity metric: {sparsity_metric}')
-print(f'run_indicator_experiments: {run_indicator_experiments}')
-print(f'run_impute_experiments: {run_impute_experiments}')
-
-### Immutable ###
+train_miss = 0
+test_miss = 0
+num_quantiles = 8
 use_distinct = True
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 holdouts = np.arange(10)
@@ -85,6 +63,24 @@ s_size=100
 np.random.seed(0)
 smim_grid = {'C':[0.01, 0.1, 1, 10], 'penalty': ['l2'], 'max_iter': [5_000], 'tol': [1e-2]}
 ###################
+
+# Print the hyperparameter settings
+print('--- Hyperparameter Settings ---')
+print(f'Dataset: {dataset}')
+print(f'Quantiles: {num_quantiles}')
+print(f'Distinctness pattern: (overall intercept, overall ixn, specific intercept, specific interaction): ({overall_mi_intercept}, {overall_mi_ixn}, {specific_mi_intercept}, {specific_mi_ixn})')
+print(f'Missingness augmentation level: {mice_augmentation_level}')
+print(f'Baseline imputer: {baseline_imputer}')
+print(f'Sparsity metric: {sparsity_metric}')
+print(f'run_indicator_experiments: {run_indicator_experiments}')
+print(f'run_impute_experiments: {run_impute_experiments}')
+print(f'baseline_aug_level: {baseline_aug_level}')
+#print control flow variables: 
+print('--- Control Flow Variables ---')
+print(f'run_impute_experiments: {run_impute_experiments}')
+print(f'run_indicator_experiments: {run_indicator_experiments}')
+
+print('-----------------------------------------------')
 
 ### basic hyperparameter processing ###
 
@@ -142,6 +138,49 @@ def prefix_pre_imputed(dataset):
 
 ###############################################
 
+# check if experiment has already been run: 
+
+results_path = f'experiment_data/{dataset}/{method}'
+## possibly-antiquated hyperparameters still needed to preserve file structure of experiment: 
+results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
+if train_miss != 0 or test_miss != 0: 
+    results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
+
+if baseline_imputer != 'Mean': #let default be mean imputation for now
+    results_path += f'/impute_{baseline_imputer}'
+if baseline_aug_level != 0:
+    results_path += f'/aug_{baseline_aug_level}'
+
+MICE_results_path = f'{results_path}/100'#100 lets us keep things consistent with prior folder structures
+if mice_augmentation_level > 0: 
+    MICE_results_path += f'/{mice_augmentation_level}'
+if baseline_imputer != 'MICE':
+    MICE_results_path += f'/{baseline_imputer}'
+
+if sparsity_metric != 'default': 
+    results_path = f'{results_path}/sparsity_{sparsity_metric}'
+
+if not os.path.exists(results_path):
+    os.makedirs(results_path)
+if not os.path.exists(MICE_results_path):
+    os.makedirs(MICE_results_path)
+
+if run_impute_experiments:
+    save_file = f'{MICE_results_path}/imputation_ensemble_train_{metric}.csv'
+    #if save file already exists: 
+    if os.path.exists(save_file):
+        print(f"Save file '{save_file}' already exists.")
+        if not rerun: 
+            run_impute_experiments = False
+    
+
+# overkill on saved files
+if run_indicator_experiments: 
+    save_file = f'{results_path}/train_{metric}_aug.csv'
+    if os.path.exists(save_file):
+        print(f"Save file '{save_file}' already exists.")
+        if not rerun: 
+            run_indicator_experiments = False
 #############################################
 ### measures across trials, for plotting: ###
 #############################################
@@ -178,8 +217,7 @@ for holdout_set in holdouts:
                             miss_vals=[-7, -8, -9] if dataset=='FICO' else [np.nan, -7, -8, -9, -10], 
                             overall_mi_intercept = overall_mi_intercept, overall_mi_ixn = overall_mi_ixn, 
                             specific_mi_intercept = specific_mi_intercept, specific_mi_ixn = specific_mi_ixn, 
-                            categorical_cols = categorical_cols, numerical_cols = numerical_cols, 
-                            imputer = M_GAM_IMPUTERS[mgam_imputer]) 
+                            categorical_cols = categorical_cols, numerical_cols = numerical_cols) 
         # TODO: encode miss_vals to the specific set of missingness values for this dataset, 
         # or add functionality to prune out non-occurring missingness values in binarizer
         # TODO: move outside of this loop; all we need from this loop is the label and predictors, which 
@@ -287,50 +325,26 @@ for holdout_set in holdouts:
                         path_to_imputed(dataset, holdout_set, val_set, 0), 
                         label, predictors, train, test, val)
 
-                (train_no, train_ind, train_aug, 
-                test_no, test_ind, test_aug, 
-                y_train_no, y_train_ind, y_train_aug, 
-                y_test_no, y_test_ind, y_test_aug, 
-                cluster_no, cluster_ind, cluster_aug) = encoder.binarize_and_augment(
-                    pd.concat([train_i, val_i]), test_i)
+                binarized_augmented_data = encoder.binarize_and_augment(
+                    pd.concat([train, val]), test, imputed_train_df = pd.concat([train_i, val_i]), imputed_test_df = test_i)
+
+                train_use = binarized_augmented_data[baseline_aug_level].copy()
+                test_use = binarized_augmented_data[baseline_aug_level + 3].copy()
+                y_train = binarized_augmented_data[6]
+                y_test = binarized_augmented_data[9]
 
                 # tune & fit logistic regression on data w/o missingness indicators
                 clf = LogisticRegression(random_state=0)
                 grid_search = GridSearchCV(clf, smim_grid, cv=5)
-                grid_search.fit(train_no, y_train_no)
+                grid_search.fit(train_use, y_train)
                 print("best params: ", grid_search.best_params_)
 
                 sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else -1 #not implemented for non-default
 
-                train_auc_indicator[holdout_set] = grid_search.score(train_no, y_train_no)if metric == 'acc' else -1 #not implemented yet
-                test_auc_indicator[holdout_set] = grid_search.score(test_no, y_test_no)if metric == 'acc' else -1 #not implemented yet
+                train_auc_indicator[holdout_set] = grid_search.score(train_use, y_train)if metric == 'acc' else -1 #not implemented yet
+                test_auc_indicator[holdout_set] = grid_search.score(test_use, y_test)if metric == 'acc' else -1 #not implemented yet
 
 #save data to csv: 
-
-
-results_path = f'experiment_data/{dataset}/{method}'
-## possibly-antiquated hyperparameters still needed to preserve file structure of experiment: 
-results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
-if train_miss != 0 or test_miss != 0: 
-    results_path = f'{results_path}/train_{train_miss}/test_{test_miss}'
-
-if baseline_imputer != 'Mean': #let default be mean imputation for now
-    results_path += f'/impute_{baseline_imputer}'
-
-MICE_results_path = f'{results_path}/100'#100 lets us keep things consistent with prior folder structures
-if mice_augmentation_level > 0: 
-    MICE_results_path += f'/{mice_augmentation_level}'
-if baseline_imputer != 'MICE':
-    MICE_results_path += f'/{baseline_imputer}'
-if not os.path.exists(MICE_results_path):
-    os.makedirs(MICE_results_path)
-
-if sparsity_metric != 'default': 
-    results_path = f'{results_path}/sparsity_{sparsity_metric}'
-if mgam_imputer != None: 
-    results_path = f'{results_path}/imputer_{mgam_imputer}'
-if not os.path.exists(results_path):
-    os.makedirs(results_path)
 
 if run_impute_experiments:
     np.savetxt(f'{MICE_results_path}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)

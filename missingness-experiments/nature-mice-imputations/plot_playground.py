@@ -21,7 +21,8 @@ import matplotlib.pyplot as plt
 from mice_utils import errors, uncertainty_bands, uncertainty_bands_subplot, uncertainty_bands_subplot_mice
 
 from cycler import cycler
-plt.rcParams["axes.prop_cycle"] = cycler('color', ['#92c5de','#0571b0', '#ca0020','#f4a582'])#['#1f77b4', '#ff7f0e', '#808080'])
+# plt.rcParams["axes.prop_cycle"] = cycler('color', ['#92c5de','#0571b0', '#ca0020','#f4a582'])#['#1f77b4', '#ff7f0e', '#808080'])
+# plt.rcParams["axes.prop_cycle"] = cycler('color', ['#762a83','#af8dc3','#e7d4e8','#d9f0d3','#7fbf7b','#1b7837'])
 # plt.rcParams.update({'font.size': 16})
 
 dataset = 'FICO'
@@ -116,9 +117,12 @@ sparsity_aug = np.loadtxt(f'{res_dir}/sparsity_aug.csv')
 sparsity_indicator = np.loadtxt(f'{res_dir}/sparsity_indicator.csv')
 sparsity_no_missing = np.loadtxt(f'{res_dir}/sparsity_no_missing.csv')
 
-def load_train_test_sparsity(method='SMIM', aug_level = 0): 
+# approach for baselines that *do* have a sparsity measure (mean, extreme value)
+def load_train_test_sparsity(method='SMIM', aug_level = 0, use_mean=True): 
     m_res_dir = f'experiment_data/{dataset}/{method}'
     m_res_dir = f'{m_res_dir}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
+    if not use_mean: 
+        m_res_dir += f'/impute_None'
     if aug_level != 0:
         m_res_dir += f'/aug_{aug_level}'
     return (
@@ -132,6 +136,11 @@ smim_train_perf, smim_test_perf, smim_sparsity = load_train_test_sparsity()
 noreg_train_perf, noreg_test_perf, noreg_sparsity = load_train_test_sparsity(method='noreg')
 noreg_ind_train_perf, noreg_ind_test_perf, noreg_ind_sparsity = load_train_test_sparsity(method='noreg', aug_level=1)
 noreg_aug_train_perf, noreg_aug_test_perf, noreg_aug_sparsity = load_train_test_sparsity(method='noreg', aug_level=2)
+
+noreg_nomean_perf, noreg_nomean_test_perf, noreg_nomean_sparsity = load_train_test_sparsity(method='noreg', use_mean=False)
+
+noreg_nomean_ind_train_perf, noreg_nomean_ind_test_perf, noreg_nomean_ind_sparsity = load_train_test_sparsity(method='noreg', aug_level=1, use_mean=False)
+noreg_nomean_aug_train_perf, noreg_nomean_aug_test_perf, noreg_nomean_aug_sparsity = load_train_test_sparsity(method='noreg', aug_level=2, use_mean=False)
 
 imputation_results_test = []
 imputation_results_train = []
@@ -202,7 +211,7 @@ TEST_VALS = [(sparsity_no_missing, test_auc_no_missing),
              (sparsity_indicator, test_auc_indicator)]
 
 def plot_with_break(is_train = True): 
-        f, (ax, ax1, ax2) = plt.subplots(1, 3, sharey=True, gridspec_kw={'width_ratios': [2, 1, 1]})
+        f, (ax, ax1, ax1b, ax2) = plt.subplots(1, 4, sharey=True, gridspec_kw={'width_ratios': [2, 1, 1, 1]},figsize=[12, 7])
 
         # plot the same data on both axes
         train_or_test_str = 'Train' if is_train else 'Test'
@@ -232,19 +241,41 @@ def plot_with_break(is_train = True):
         uncertainty_bands_subplot(vals[1][0], vals[1][1], 'Missingness with interactions', ax1)
         uncertainty_bands_subplot(smim_sparsity, smim_train_perf if is_train else smim_test_perf, 'SMIM', ax1)
         uncertainty_bands_subplot(noreg_sparsity, noreg_train_perf if is_train else noreg_test_perf, 'GAM', ax1)# w/ MVI
-        uncertainty_bands_subplot(noreg_ind_sparsity, noreg_ind_train_perf if is_train else noreg_ind_test_perf, 'GAM w/ Indicators', ax1)
-        uncertainty_bands_subplot(noreg_aug_sparsity, noreg_aug_train_perf if is_train else noreg_aug_test_perf, 'GAM w/ Interactions', ax1)
+        uncertainty_bands_subplot(noreg_ind_sparsity, noreg_ind_train_perf if is_train else noreg_ind_test_perf, 'GAM w/ Indicators & MVI', ax1)
+        uncertainty_bands_subplot(noreg_aug_sparsity, noreg_aug_train_perf if is_train else noreg_aug_test_perf, 'GAM w/ Interactions & MVI', ax1)
+        uncertainty_bands_subplot(noreg_nomean_ind_sparsity, noreg_nomean_ind_train_perf if is_train else noreg_nomean_ind_test_perf, 'GAM w/ Indicators', ax1)
+        uncertainty_bands_subplot(noreg_nomean_aug_sparsity, noreg_nomean_aug_train_perf if is_train else noreg_nomean_aug_test_perf, 'GAM w/ Interactions', ax1)
+        uncertainty_bands_subplot(noreg_nomean_sparsity, noreg_nomean_perf if is_train else noreg_nomean_test_perf, 'GAM w/ MVI', ax1)
 
         ax1.set_xlabel(x_title)
 
+        uncertainty_bands_subplot(vals[2][0], vals[2][1], 'Missingness indicators', ax1b) 
+        uncertainty_bands_subplot(vals[1][0], vals[1][1], 'Missingness with interactions', ax1b)
+        uncertainty_bands_subplot(smim_sparsity, smim_train_perf if is_train else smim_test_perf, 'SMIM', ax1b)
+        uncertainty_bands_subplot(noreg_sparsity, noreg_train_perf if is_train else noreg_test_perf, 'GAM', ax1b)# w/ MVI
+        uncertainty_bands_subplot(noreg_ind_sparsity, noreg_ind_train_perf if is_train else noreg_ind_test_perf, 'GAM w/ Indicators & MVI', ax1b)
+        uncertainty_bands_subplot(noreg_aug_sparsity, noreg_aug_train_perf if is_train else noreg_aug_test_perf, 'GAM w/ Interactions & MVI', ax1b)
+        uncertainty_bands_subplot(noreg_nomean_ind_sparsity, noreg_nomean_ind_train_perf if is_train else noreg_nomean_ind_test_perf, 'GAM w/ Indicators', ax1b)
+        uncertainty_bands_subplot(noreg_nomean_aug_sparsity, noreg_nomean_aug_train_perf if is_train else noreg_nomean_aug_test_perf, 'GAM w/ Interactions', ax1b)
+
+        ax1b.set_xlabel(x_title)
+
+        uncertainty_bands_subplot(sparsity_indicator, train_auc_indicator, 'MGAM, Indicators', ax2) 
+        uncertainty_bands_subplot(sparsity_aug, train_auc_aug, 'MGAM, Interactions', ax2)
+        uncertainty_bands_subplot(smim_sparsity, smim_train_perf, 'SMIM', ax2)
+        uncertainty_bands_subplot(noreg_sparsity, noreg_train_perf if is_train else noreg_test_perf, 'GAM w/ MVI', ax2)# w/ MVI
+        uncertainty_bands_subplot(noreg_ind_sparsity, noreg_ind_train_perf if is_train else noreg_ind_test_perf, 'GAM w/ MVI, Indicators', ax2)
+        uncertainty_bands_subplot(noreg_aug_sparsity, noreg_aug_train_perf if is_train else noreg_aug_test_perf, 'GAM w/ MVI, Interactions', ax2)
+        uncertainty_bands_subplot(noreg_nomean_sparsity, noreg_nomean_perf if is_train else noreg_nomean_test_perf, 'GAM', ax2)
+        uncertainty_bands_subplot(noreg_nomean_ind_sparsity, noreg_nomean_ind_train_perf if is_train else noreg_nomean_ind_test_perf, 'GAM w/ Indicators', ax2)
+        uncertainty_bands_subplot(noreg_nomean_aug_sparsity, noreg_nomean_aug_train_perf if is_train else noreg_nomean_aug_test_perf, 'GAM w/ Interactions', ax2)
         for idx, imp_result in enumerate(imputation_results_train if is_train else imputation_results_test): 
             #plot a point with an error bar at x=201: 
             plot_position = 200 + (idx+1)/(len(baseline_imputers)+1)
             marker=['o', '^', '>', 'v', '<'][idx % 5]
-            colour = ['grey', 'purple', 'green', 'blue', 'red'][idx % 5]
+            # colour = ['grey', 'purple', 'green', 'blue', 'red'][idx % 5]
             # ax2.plot(plot_position, np.nanmean(imp_result), marker=marker, color = 'black')
-            eb = ax2.errorbar(plot_position, np.nanmean(imp_result), yerr=np.nanstd(imp_result)/np.sqrt(10), xerr = 1, 
-                              color=colour, marker=marker, label=baseline_imputers[idx])
+            eb = ax2.errorbar(plot_position, np.nanmean(imp_result), yerr=np.nanstd(imp_result)/np.sqrt(10), xerr = 1, marker=marker, label=baseline_imputers[idx])
             # eb[-1][0].set_linestyle('-') 
             eb[-1][1].set_linestyle('--') 
             # ax2.hlines(np.nanmean(imp_result), 0,
@@ -254,12 +285,6 @@ def plot_with_break(is_train = True):
             # if idx == 0: 
             #     uncertainty_bands_subplot_mice(imp_result, None, ax2)
             # uncertainty_bands_subplot(sparsity_no_missing, train_auc_no_missing, 'No Missingness \n Handling', ax2)
-        uncertainty_bands_subplot(sparsity_indicator, train_auc_indicator, 'Indicators', ax2) 
-        uncertainty_bands_subplot(sparsity_aug, train_auc_aug, 'Interactions', ax2)
-        uncertainty_bands_subplot(smim_sparsity, smim_train_perf, 'SMIM', ax2)
-        uncertainty_bands_subplot(noreg_sparsity, noreg_train_perf if is_train else noreg_test_perf, 'GAM', ax2)# w/ MVI
-        uncertainty_bands_subplot(noreg_ind_sparsity, noreg_ind_train_perf if is_train else noreg_ind_test_perf, 'GAM w/ Indicators', ax2)
-        uncertainty_bands_subplot(noreg_aug_sparsity, noreg_aug_train_perf if is_train else noreg_aug_test_perf, 'GAM w/ Interactions', ax2)
         ax2.set_xlabel('Non-interpretable \n models')
         ax2.set_xticks([]) # need to replace xticks with infinity
 
@@ -268,6 +293,7 @@ def plot_with_break(is_train = True):
 
         ax.set_xlim(0, s_size_cutoff)
         ax1.set_xlim(window_cutoff-75, window_cutoff)
+        ax1b.set_xlim(window_cutoff, noreg_aug_sparsity.max()+100)
         ax2.set_xlim(200, 201)
         # ax.set_ylim(0.5, 2.2)
         # ax2.set_ylim(0.5, 2.2)
@@ -277,8 +303,11 @@ def plot_with_break(is_train = True):
         ax2.spines['left'].set_visible(False)
         ax1.spines['right'].set_visible(False)
         ax1.spines['left'].set_visible(False)
+        ax1b.spines['right'].set_visible(False)
+        ax1b.spines['left'].set_visible(False)
         #remove ticks from ax1.yaxis
         ax1.yaxis.set_ticks_position('none')
+        ax1b.yaxis.set_ticks_position('none')
         ax.yaxis.tick_left()
         ax.tick_params(labelright=False)
         ax2.yaxis.tick_right()
@@ -305,51 +334,24 @@ def plot_with_break(is_train = True):
         ax1.plot((1-(1)*d, 1+(1)*d), (-d, d), **kwargs)
         ax1.plot((1-(1)*d, 1+1*d), (1-d, 1+d), **kwargs)
 
+        kwargs.update(transform=ax1b.transAxes)  # switch to the bottom axes
+        ax1b.plot((-d, +d), (1-d, 1+d), **kwargs)
+        ax1b.plot((-d, +d), (-d, +d), **kwargs)
+
+        kwargs = dict(transform=ax1b.transAxes, color='k', clip_on=False)
+        ax1b.plot((1-(1)*d, 1+(1)*d), (-d, d), **kwargs)
+        ax1b.plot((1-(1)*d, 1+1*d), (1-d, 1+d), **kwargs)
+
         kwargs.update(transform=ax2.transAxes)  # switch to the bottom axes
         ax2.plot((-d, +d), (1-d, 1+d), **kwargs)
         ax2.plot((-d, +d), (-d, +d), **kwargs)
 
         f.tight_layout()
         train_or_test_str = 'train' if is_train else 'test'
-        plt.savefig(f'{fig_dir}mice_slurm_{train_or_test_str}_{metric}_with_break.{filetype}')
+        # plt.savefig(f'{fig_dir}mice_slurm_{train_or_test_str}_{metric}_with_break.{filetype}')
+        plt.savefig(f'./test.{filetype}')
 # plot_with_break(True)
 plot_with_break(False)
 
-plt.clf()
-
-plt.title(f'Train {METRIC_NAME[metric]} vs {x_title} \n for {dataset} dataset')
-plt.hlines(imputation_ensemble_train_auc.mean(), 0,
-           max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
-           label='mean performance, ensemble of 10 MICE imputations',
-           color='grey') #TODO: add error bars? 
-# uncertainty_bands(sparsity_no_missing, train_auc_no_missing, 'No missingness handling')
-# uncertainty_bands(sparsity_aug, train_auc_aug, 'Missingness with interactions')
-uncertainty_bands(sparsity_indicator, train_auc_indicator, 'Missingness indicators') 
-uncertainty_bands(sparsity_aug, train_auc_aug, 'Missingness with interactions')
-plt.xlabel(x_title)
-plt.ylabel(f'Train {METRIC_NAME[metric]}')
-plt.legend()
-plt.xlim(0,window_cutoff)
-# plt.ylim(0.7, 0.86)
-plt.savefig(f'{fig_dir}mice_slurm_train_{metric}.{filetype}')
-
-plt.clf()
-
-plt.title(f'Test {METRIC_NAME[metric]} vs {x_title} \n for {DATASET_NAME[dataset]} Dataset')
-plt.hlines(np.nanmean(imputation_ensemble_test_auc), 0,
-           max([sparsity_aug.max(), sparsity_indicator.max()]), linestyles='dashed',
-           label='mean performance, ensemble of 10 MICE imputations', 
-           color='grey') #TODO: add error bars? 
-# uncertainty_bands(sparsity_no_missing, test_auc_no_missing, 'No missingness handling')
-# uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
-uncertainty_bands(sparsity_indicator, test_auc_indicator, 'Missingness indicators')
-uncertainty_bands(sparsity_aug, test_auc_aug, 'Missingness with interactions')
-plt.xlabel(x_title)
-plt.ylabel(f'Test {METRIC_NAME[metric]}')
-plt.legend()
-plt.xlim(0,window_cutoff)
-# plt.ylim(0.9, 2.2)
-plt.savefig(f'{fig_dir}mice_slurm_test_{metric}.{filetype}')
-
 print('successfully finished execution')
-print(f'fig dir: {fig_dir}')
+print(f'./test.{filetype}')
