@@ -1,14 +1,10 @@
-#!/home/users/ham51/.venvs/fastsparsebuild/bin/python
 #SBATCH --job-name=sparsity # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=ham51@duke.edu     # Where to send mail
 #SBATCH --output=logs/mgams/sparse_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
-#not SBATCH --partition=compsci
 
 import os
 import sys
@@ -103,8 +99,8 @@ METRIC_FN = {
 
 def path_to_imputed(dataset, holdout_set, val_set, imputation):
     if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
-        return  f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
-    return f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+        return  f'../../handling_missing_data/IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+    return f'../../handling_missing_data/IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
 
 
 def prefix_pre_imputed(dataset):

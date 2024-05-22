@@ -1,4 +1,3 @@
-#!/home/users/ham51/.venvs/fastsparsebuild/bin/python
 import os
 import sys
 import re
@@ -111,13 +110,13 @@ METRIC_FN = {
 
 def path_to_imputed(dataset, holdout_set, val_set, imputation):
     if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
-        return  f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
-    return f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+        return  f'../../handling_missing_data/IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+    return f'../../handling_missing_data/IMPUTED_DATA/{dataset}/{baseline_imputer}/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
 
 def path_to_mean(dataset, holdout_set, val_set, imputation):
     if train_miss != 0 or test_miss != 0 or 'SYNTHETIC' in dataset:
-        return  f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/Mean/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
-    return f'/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/JON_IMPUTED_DATA/{dataset}/Mean/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+        return  f'../../handling_missing_data/IMPUTED_DATA/{dataset}/Mean/train_per_{train_miss}/test_per_{test_miss}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
+    return f'../../handling_missing_data/IMPUTED_DATA/{dataset}/Mean/train_per_0/test_per_0/holdout_{holdout_set}/val_{val_set}/m_{imputation}/'
 
 
 def prefix_pre_imputed(dataset):

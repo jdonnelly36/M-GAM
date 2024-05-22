@@ -1,18 +1,13 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=i_gpu_MAR_general # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=jonathan.donnelly@maine.edu     # Where to send mail
 #SBATCH --output=logs/i_gpu_MAR_general_%j.out
 #not SBATCH --ntasks=1                    # Run on a single Node
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=100gb                     # Job memory request
 #SBATCH --time=48:00:00               # Time limit hrs:min:sec
-#SBATCH -x linux46
 #not SBATCH --gres=gpu:p100:1
-#SBATCH --partition=compsci
 #SBATCH --array=0-279%10              # should equal num_imputers * num_datasets * num_holdouts - 1
-# source /usr/xtmp/jcd97/imputation-env/bin/activate
-source /home/users/ham51/imputation-env/bin/activate
 
 
 imputers=(MissForest Mean)

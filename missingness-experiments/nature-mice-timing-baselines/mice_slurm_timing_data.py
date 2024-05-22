@@ -1,13 +1,9 @@
-#!/usr/xtmp/jcd97/environments/missing_repl_env/bin/python
 #SBATCH --job-name=missing_data # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=jcd97@duke.edu     # Where to send mail
 #SBATCH --output=./parallelized_logs/missing_data_%j_%a.out
 #SBATCH --ntasks=1                    # Run on a single Node
-#SBATCH --nodelist=linux[41-45],linux[47-50]
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60],gpu-compute[1-7]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 import os
@@ -50,8 +46,6 @@ validations = [0, 1, 2, 3, 4] #np.arange(5)#
 imputations = 10
 max_support_size = 50
 
-#dataset = '/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/DATA/SYNTHETIC/SYNTHETIC_1000_SAMPLES_25_FEATURES_25_INFORMATIVE'#'BREAST_CANCER'
-#dataset_imp = '/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data/IMPUTED_DATA/SYNTHETIC/MICE/train_per_0.5'#'BREAST_CANCER'
 #dataset_suffix = '_train_missing_0.5_test_missing_0.25'
 
 metric = 'acc'
@@ -529,39 +523,15 @@ if __name__ == '__main__':
         slurm_iter = None
         
 
-    dataset_base_path = '/home/users/jcd97/code/missing_data/fastsparse_take_3/fastsparsemissing/handling_missing_data'
+    dataset_base_path = '../../handling_missing_data'
     overall_df = None
 
     imputations = 10
     
-    """
-    Have completed:
-    for imputation_method in ['Mean', 'MICE', 'MissForest']:
-        for ds_name in ['CKD', 'HEART_DISEASE', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS']:
-
-    for imputation_method in ['Mean', 'MICE', 'MissForest',]:
-        for subsample in ['_0.25', '_0.5', '_0.75']:
-            for ds_name in ['CKD', 'HEART_DISEASE', 'BREAST_CANCER', 'PHARYNGITIS']:
-
-    Have running:
-    for imputation_method in ['MIWAE]:
-        for subsample in ['', '_0.25', '_0.5', '_0.75']:
-            for ds_name in ['CKD', 'HEART_DISEASE', 'PHARYNGITIS', 'FICO']:
-
-    Need to run:
-
-    for imputation_method in ['Mean', 'MICE', 'MissForest',]:
-        for subsample in ['_0.25', '_0.5', '_0.75']:
-            for ds_name in ['FICO']:
-
-    for imputation_method in ['Mean', 'MICE', 'MissForest', 'MIWAE']:
-        for subsample in ['', '_0.25', '_0.5', '_0.75']:
-            for ds_name in ['ADULT', 'BREAST_CANCER', 'MIMIC']:
-    """
     for subsample in ['']:#, '_0.5', '_0.75', '_0.25']:
         for imputation_method in ['MICE', 'Mean', 'MIWAE', 'MissForest']:
         #for subsample in ['', '_0.5', '_0.75', '_0.25']:
-            for ds_name in ['MIMIC', 'ADULT', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS', 'CKD', 'HEART_DISEASE']:
+            for ds_name in ['MIMIC', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS', 'CKD', 'HEART_DISEASE']:
                 try:
                     ds_name = ds_name + subsample
                     print(f"Running for {imputation_method}, {ds_name}")
@@ -582,7 +552,7 @@ if __name__ == '__main__':
                                     continue
                                 else:
                                     print("WARNING: File " + f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv' + f" already exists, but has length {existing_res.shape[0]}")
-                            dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
+                            dataset_imp = f'{dataset_base_path}/IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
                             dataset_suffix = f''
 
                             if 'FICO' in ds_name:
@@ -645,43 +615,6 @@ if __name__ == '__main__':
                 except:
                     print(f"Skipping {imputation_method}, {ds_name} because of an error")
 
-    '''for fico_vers in ['FICO_0.25', 'FICO_0.5', 'FICO_0.75']:
-        dataset = f'{dataset_base_path}/DATA_REDUCED/{fico_vers}/'#'BREAST_CANCER'
-        for train_rate in [0]:
-            for test_rate in [0]:
-                dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{fico_vers}/MICE/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
-                dataset_suffix = f''
-                gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
-                            dataset_name=f'{fico_vers}')
-                res_df = get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset_imp, dataset_suffix,
-                    dataset_name=f'{fico_vers}')
-                if overall_df is None:
-                    overall_df = pd.concat([res_df, gam_res_df], axis=0)
-                else:
-                    overall_df = pd.concat([overall_df, res_df, gam_res_df], axis=0)
-                overall_df.to_csv(f'./full_baseline_results_many_clf_{date.today()}_10_holdouts_f_sub.csv',index=False)'''
-
-
-            
-
-    #save data to csv: 
-
-    '''np.savetxt(f'experiment_data/{dataset}/train_{metric}_aug.csv', train_auc_aug)
-    np.savetxt(f'experiment_data/{dataset}/train_{metric}_indicator.csv', train_auc_indicator)
-    np.savetxt(f'experiment_data/{dataset}/train_{metric}_no_missing.csv', train_auc_no_missing)
-    np.savetxt(f'experiment_data/{dataset}/test_{metric}_aug.csv', test_auc_aug)
-    np.savetxt(f'experiment_data/{dataset}/test_{metric}_indicator.csv', test_auc_indicator)
-    np.savetxt(f'experiment_data/{dataset}/test_{metric}_no_missing.csv', test_auc_no_missing)
-    np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_train_{metric}.csv', imputation_ensemble_train_auc)
-    np.savetxt(f'experiment_data/{dataset}/imputation_ensemble_test_{metric}.csv', imputation_ensemble_test_auc)
-    np.savetxt(f'experiment_data/{dataset}/nllambda.csv', -np.log(lambda_grid[0]))
-
-    np.savetxt(f'experiment_data/{dataset}/sparsity_aug.csv', sparsity_aug)
-    np.savetxt(f'experiment_data/{dataset}/sparsity_indicator.csv', sparsity_indicator)
-    np.savetxt(f'experiment_data/{dataset}/sparsity_no_missing.csv',sparsity_no_missing)'''
-
-
-    #can also try pickle file of all hyperparameters, and save to a folder with corresponding hash
-
+    
 
     print('successfully finished execution')

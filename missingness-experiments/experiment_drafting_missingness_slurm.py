@@ -1,12 +1,9 @@
-#!/home/users/jcd97/missing_data/bin/python
 #SBATCH --job-name=missing_data # Job name
 #SBATCH --mail-type=NONE          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=jonathan.donnelly@maine.edu     # Where to send mail
 #SBATCH --output=missing_data_%j.out
 #SBATCH --ntasks=1                 # Run on a single Node
 #SBATCH --cpus-per-task=16          # All nodes have 16+ cores; about 20 have 40+
 #SBATCH --mem=100gb                     # Job memory request
-#not SBATCH  -x linux[41-60],gpu-compute[1-7]
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 from statistics import correlation
