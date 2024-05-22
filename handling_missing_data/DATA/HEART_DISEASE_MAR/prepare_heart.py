@@ -38,6 +38,7 @@ for added_missingness_rate in [0.25, 0.5]:
 
     for i, col in enumerate(target_cols):
         print(f"Adding missingness to: {df.columns[col]}")
+        print(f'Where missingness interacts with: {df.columns[inter_cols[i]]}')
         thresh_col = df.columns[inter_cols[i]]
         thresh_mask = df[thresh_col] >= df[thresh_col].quantile(0.6)
         tartget_labels = np.zeros_like(thresh_mask)

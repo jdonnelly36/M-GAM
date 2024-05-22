@@ -24,19 +24,22 @@ for added_missingness_rate in [0.25, 0.5]:
 
     np.random.seed(0)
 
-    target_cols = np.array([0])#np.random.choice(data.shape[1]-1, added_missingness_num_cols, replace=False)
+    target_cols = np.array(['conjunctivitis'])#np.random.choice(data.shape[1]-1, added_missingness_num_cols, replace=False)
 
-    inter_cols = np.array([1])#np.random.choice(data.shape[1]-1, added_missingness_num_cols, replace=False)
+    inter_cols = ['swollenadp'] #list of columns is unordered, so need to use col name instead #np.random.choice(data.shape[1]-1, added_missingness_num_cols, replace=False) #1 #changed because all data >= 60th percentile for first selection
     targets = np.random.choice([0, 1], size=(data.shape[0], target_cols.shape[0]), p=[1-added_missingness_rate, added_missingness_rate])
-
+    print(target_cols)
+    print(data.columns)
     for i, col in enumerate(target_cols):
-        print(f"Adding missingness to: {data.columns[col]}")
-        thresh_col = data.columns[inter_cols[i]]
+        import pdb; pdb.set_trace()
+        print(f"Adding missingness to: {col}")
+        thresh_col = inter_cols[i]
         thresh_mask = data[thresh_col] >= data[thresh_col].quantile(0.6)
         tartget_labels = np.zeros_like(thresh_mask)
         tartget_labels[thresh_mask] = 1
+        print(tartget_labels.sum() / data.shape[0])
         mask = (targets[:, i] == 1) & (data['radt'] == tartget_labels)
-        data.loc[mask, data.columns[col]] = np.nan
+        data.loc[mask, col] = np.nan
 
 
     # ### Create training, validation and holdout sets
