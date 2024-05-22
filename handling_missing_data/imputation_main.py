@@ -58,9 +58,9 @@ def perform_imputations(params):
             )
             run_experiment = overall_time_states[mask_for_experiment].shape[0] == 0
         except:
-            overall_time_states = None
+            run_experiment = True
         finally:
-            if overall_time_states is None or run_experiment:
+            if run_experiment:
                 time_stats = impute_and_store(experiment, random_state=experiment.m)
                 if overall_time_states is None:
                     overall_time_states = time_stats
