@@ -47,12 +47,28 @@ def perform_imputations(params):
     overall_time_states = None
     for experiment in get_experiment_params(params):
         logger.info("Beginning imputation for %s", experiment)
-        time_stats = impute_and_store(experiment, random_state=experiment.m)
-        if overall_time_states is None:
-            overall_time_states = time_stats
-        else:
-            overall_time_states = pd.concat([overall_time_states, time_stats], axis=0)
-            overall_time_states.to_csv(f'timing_stats_{experiment.dataset}_{experiment.imputation}_5_3.csv', index=False)
+        try:
+            overall_time_states = pd.read_csv(f'timing_stats_{experiment.dataset}_{experiment.imputation}_5_3.csv')
+            mask_for_experiment = (
+                (overall_time_states['m'] == experiment.m) &
+                (overall_time_states['dataset'] == experiment.dataset) &
+                (overall_time_states['holdout_set'] == experiment.holdout_set) &
+                (overall_time_states['imputation'] == experiment.imputation) &
+                (overall_time_states['validation_set'] == experiment.validation_set)
+            )
+            run_experiment = overall_time_states[mask_for_experiment].shape[0] == 0
+        except:
+            run_experiment = True
+        finally:
+            if run_experiment:
+                time_stats = impute_and_store(experiment, random_state=experiment.m)
+                if overall_time_states is None:
+                    overall_time_states = time_stats
+                else:
+                    overall_time_states = pd.concat([overall_time_states, time_stats], axis=0)
+                    overall_time_states.to_csv(f'timing_stats_{experiment.dataset}_{experiment.imputation}_5_3.csv', index=False)
+            else:
+                print(f"Skipping experiment for {experiment}")
 
 
 def main():

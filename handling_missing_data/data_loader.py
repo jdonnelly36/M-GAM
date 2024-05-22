@@ -379,7 +379,7 @@ class DataLoaderAdult(_DataLoaderBase):
 
     def __init__(self):
         super().__init__()
-        self.datadir = "DATA/ADULT"
+        self.datadir = "DATA_REDUCED/ADULT"
         self.outcome_col = "income"
 
     def extract_cat_vars(self, one_hot: bool) -> tuple[list[int], list[int]]:
@@ -402,6 +402,33 @@ class DataLoaderAdult(_DataLoaderBase):
         return self.ord_to_onehot_multicat(data)
 
 dataloaders["ADULT"] = DataLoaderAdult
+
+class DataLoaderAdult_25(DataLoaderAdult):
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/ADULT_0.25"
+
+dataloaders["ADULT_0.25"] = DataLoaderAdult_25
+
+class DataLoaderAdult_50(DataLoaderAdult):
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/ADULT_0.5"
+
+dataloaders["ADULT_0.5"] = DataLoaderAdult_50
+
+class DataLoaderAdult_75(DataLoaderAdult):
+    cols_path = "adult_cols.json"
+    factor_levels_path = "factor_levels.json"
+    def __init__(self):
+        super().__init__()
+        self.datadir = "DATA_REDUCED/ADULT_0.75"
+
+dataloaders["ADULT_0.75"] = DataLoaderAdult_75
 
 class DataLoaderAdult_MAR_25(DataLoaderAdult):
     cols_path = "../adult_cols.json"
@@ -626,6 +653,11 @@ dataloaders["PHARYNGITIS_MAR_50"] = DATALoaderPharyngitis_MAR_50
 
 
 class DataLoaderFico(_DataLoaderBase): 
+    onehot_encoder = None
+    ordinal_encoder = None
+    encoded_colnames = None
+    cat_colnames = None
+    cols = None
     def __init__(self):
         super().__init__()
         self.datadir = ("DATA/FICO")
@@ -636,7 +668,7 @@ class DataLoaderFico(_DataLoaderBase):
 
 dataloaders["FICO"] = DataLoaderFico
 
-class DataLoaderFico_25(_DataLoaderBase): 
+class DataLoaderFico_25(DataLoaderFico): 
     def __init__(self):
         super().__init__()
         self.datadir = ("DATA/FICO_0.25")
@@ -647,7 +679,7 @@ class DataLoaderFico_25(_DataLoaderBase):
 
 dataloaders["FICO_0.25"] = DataLoaderFico_25
 
-class DataLoaderFico_50(_DataLoaderBase): 
+class DataLoaderFico_50(DataLoaderFico): 
     def __init__(self):
         super().__init__()
         self.datadir = ("DATA/FICO_0.5")
@@ -658,7 +690,7 @@ class DataLoaderFico_50(_DataLoaderBase):
 
 dataloaders["FICO_0.5"] = DataLoaderFico_50
 
-class DataLoaderFico_75(_DataLoaderBase): 
+class DataLoaderFico_75(DataLoaderFico): 
     def __init__(self):
         super().__init__()
         self.datadir = ("DATA/FICO_0.75")
@@ -717,13 +749,13 @@ dataloaders["MIMIC_0.25"] = DataLoaderMIMIC_25
 class DataLoaderMIMIC_50(_DataLoaderBase): 
     def __init__(self):
         super().__init__()
-        self.datadir = ("DATA/MIMIC_0.50")
+        self.datadir = ("DATA/MIMIC_0.5")
         self.outcome_col = "hospital_expire_flag"
     
     def data_paths(self, experiment: ExperimentParams) -> tuple[Path, ...]:
         return self._data_paths_natural(experiment)
 
-dataloaders["MIMIC_0.50"] = DataLoaderMIMIC_50
+dataloaders["MIMIC_0.5"] = DataLoaderMIMIC_50
 
 class DataLoaderMIMIC_75(_DataLoaderBase): 
     def __init__(self):

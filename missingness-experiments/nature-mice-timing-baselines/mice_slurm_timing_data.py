@@ -11,6 +11,7 @@
 #SBATCH --time=96:00:00               # Time limit hrs:min:sec
 
 import os
+import pickle
 import sys
 sys.path.append(os.getcwd())
 
@@ -29,6 +30,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn import svm
+import os
 import xgboost as xgb
 
 from datetime import date
@@ -39,6 +41,7 @@ from binarizer import Binarizer
 
 print("Started, importing")
 #hyperparameters (TODO: set up with argparse)
+FOR_TIMING = True
 num_quantiles = 8
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 
@@ -119,118 +122,135 @@ def get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset
     }
     for model_index, model_initializer in enumerate(model_types):
         for holdout_set in holdouts:
-            #try:
-            #print(f"Holdout: {holdout_set}, model class: {model_initializer.__name__}")
-            train = pd.read_csv(f'{dataset}/devel_{holdout_set}_train_{val_set}{dataset_suffix}.csv')
-            val = pd.read_csv(f'{dataset}/devel_{holdout_set}_val_{val_set}{dataset_suffix}.csv')
-            test = pd.read_csv(f'{dataset}/holdout_{holdout_set}{dataset_suffix}.csv')
+            try:
+                print(f"Holdout: {holdout_set}, model class: {model_initializer.__name__}")
+                train = pd.read_csv(f'{dataset}/devel_{holdout_set}_train_{val_set}{dataset_suffix}.csv')
+                val = pd.read_csv(f'{dataset}/devel_{holdout_set}_val_{val_set}{dataset_suffix}.csv')
+                test = pd.read_csv(f'{dataset}/holdout_{holdout_set}{dataset_suffix}.csv')
 
-            if 'PHARYNGITIS' in dataset:
-                label = 'radt'
-                predictors = list(set(train.columns) - set(['radt']))
-                ordered_cols = predictors + [label]
-                train = train[ordered_cols]
-                val = val[ordered_cols]
-                test = test[ordered_cols]
-            else:
-                label = train.columns[-1]
-                predictors = train.columns[:-1]
+                if 'PHARYNGITIS' in dataset:
+                    label = 'radt'
+                    predictors = list(set(train.columns) - set(['radt']))
+                    ordered_cols = predictors + [label]
+                    train = train[ordered_cols]
+                    val = val[ordered_cols]
+                    test = test[ordered_cols]
+                else:
+                    label = train.columns[-1]
+                    predictors = train.columns[:-1]
 
-            train_full = pd.concat([val, train])
-            imputation_train_probs = np.zeros((imputations, train.shape[0] + val.shape[0]))
-            imputation_test_probs = np.zeros((imputations, test.shape[0]))
+                train_full = pd.concat([val, train])
+                imputation_train_probs = np.zeros((imputations, train.shape[0] + val.shape[0]))
+                imputation_test_probs = np.zeros((imputations, test.shape[0]))
 
-            _, y_train = train_full[predictors], train_full[label]
-            _, y_test = test[predictors], test[label]
+                _, y_train = train_full[predictors], train_full[label]
+                _, y_test = test[predictors], test[label]
 
-            if use_smim:
-                train_X_SMIM, test_X_SMIM, SMIM_time = get_smim_dataset(train_full[predictors], train_full[label], test[predictors])
-            else:
-                SMIM_time = 0
+                if use_smim:
+                    if 'FICO' in dataset:
+                        train_full_smim = train_full.replace([-7, -8, -9], np.nan)
+                        test_smim = test.replace([-7, -8, -9], np.nan)
+                    else:
+                        train_full_smim = train_full
+                        test_smim = test
+                    train_X_SMIM, test_X_SMIM, SMIM_time = get_smim_dataset(train_full_smim[predictors], train_full_smim[label], test_smim[predictors])
+                else:
+                    SMIM_time = 0
 
-            fit_times = []
-            print("Type of model init is", str(model_initializer))
-            if 'xgboost' in str(model_initializer):
-                try:
-                    clf = GridSearchCV(estimator=model_initializer(), param_grid=param_grids[model_index], scoring=val_metric)
-                    clf.fit(train_full[predictors], train_full[label])
-                except Exception as e:
-                    print("Acceptable error (xgboost): ", repr(e))
-                fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
-
-                ensembled_train_probs = clf.predict_proba(train_full[predictors])[:, 1]
-                ensembled_test_probs = clf.predict_proba(test[predictors])[:, 1]
-
-            else:
-                for imputation in range(imputations):
-                    print("Label: ", label, "predictors: ", predictors)
-
-                    train_imp, val_imp, test_imp = return_imputation(
-                        f'{dataset_imp}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/', 
-                        label, predictors, train, test, val)
-                    train_imp = pd.concat([val_imp, train_imp])
-
-                    X_train, y_train_imp = train_imp[predictors], train_imp[label]
-                    X_test, y_test_imp = test_imp[predictors], test_imp[label]
-                    if use_smim and train_X_SMIM.shape[1] > 0:
-                        print(train_X_SMIM.shape)
-                        print(np.isnan(train_X_SMIM).any())
-                        print(X_train.values.shape)
-                        X_train = pd.DataFrame(np.concatenate([X_train.values, train_X_SMIM], axis=1))
-                        X_test = pd.DataFrame(np.concatenate([X_test.values, test_X_SMIM], axis=1))
-
-                    assert np.linalg.norm(y_train_imp - y_train) < 1e-3, \
-                        "Error: Label ordering is not consistent across imputations"
-                    assert np.linalg.norm(y_test_imp - y_test) < 1e-3, \
-                        "Error: Label ordering is not consistent across imputations"
-
+                fit_times = []
+                print("Type of model init is", str(model_initializer))
+                if 'xgboost' in str(model_initializer):
                     try:
-                        print("Starting try block")
-                        clf = GridSearchCV(model_initializer(), param_grids[model_index], scoring=val_metric)
-                        print("X_train.shape", X_train.shape, "y_train_imp.shape", y_train_imp.shape)
-                        clf.fit(X_train, y_train_imp)
-                        print("done try block")
+                        clf = GridSearchCV(estimator=model_initializer(), param_grid=param_grids[model_index], scoring=val_metric)
+                        clf.fit(train_full[predictors], train_full[label])
                     except Exception as e:
-                        print("Acceptable error: ", repr(e))
-                    
-                    print(f"clf.cv_results_: {clf.cv_results_}")
+                        print("Acceptable error (xgboost): ", repr(e))
                     fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
 
-                    try:
-                        imputation_train_probs[imputation] = clf.predict_proba(X_train)[:, 1]
-                        imputation_test_probs[imputation] = clf.predict_proba(X_test)[:, 1]
-                    except:
-                        imputation_train_probs[imputation] = clf.predict(X_train)
-                        imputation_test_probs[imputation] = clf.predict(X_test)
+                    ensembled_train_probs = clf.predict_proba(train_full[predictors])[:, 1]
+                    ensembled_test_probs = clf.predict_proba(test[predictors])[:, 1]
 
-                # calculate ensembled metric across all imputations: 
-                ensembled_train_probs = imputation_train_probs.mean(axis=0)
-                ensembled_test_probs = imputation_test_probs.mean(axis=0)
-
-            for metric in METRIC_FN:
-                train_metric_val = METRIC_FN[metric](y_train, ensembled_train_probs)
-                test_metric_val = METRIC_FN[metric](y_test, ensembled_test_probs)
-
-                metric_dict['num_imputations'] = metric_dict['num_imputations'] + [imputations]
-                metric_dict['metric'] = metric_dict['metric'] + [metric]
-                metric_dict['metric_value_train'] = metric_dict['metric_value_train'] + [train_metric_val]
-                metric_dict['metric_value_test'] = metric_dict['metric_value_test'] + [test_metric_val]
-                metric_dict['model_type'] = metric_dict['model_type'] + [model_initializer.__name__]
-                metric_dict['missingness_handling'] = metric_dict['missingness_handling'] + [imputation_method]
-                metric_dict['holdout_set'] = metric_dict['holdout_set'] + [holdout_set]
-                metric_dict['mean_fit_time'] = metric_dict['mean_fit_time'] + [np.mean(fit_times)]
-                metric_dict['std_fit_time'] = metric_dict['std_fit_time'] + [np.std(fit_times)]
-                metric_dict['dataset'] = metric_dict['dataset'] + [dataset_name]
-                metric_dict['use_smim'] = metric_dict['use_smim'] + [use_smim]
-                metric_dict['smim_time'] = metric_dict['smim_time'] + [SMIM_time]
-
-
-                if slurm_iter is None:
-                    pd.DataFrame(metric_dict).to_csv(f'./full_baseline_results_many_clf_tmp_multi_{date.today()}_10_holdouts_{dataset_name}_{imputations}_imp_{imputation_method}_50_max_coef.csv',index=False)
                 else:
-                    pd.DataFrame(metric_dict).to_csv(f'./parallelized_results/tmp_multi_{date.today()}_iter_{slurm_iter}_{imputation_method}_imp_{imputations}_imp_all_50_max_coef.csv',index=False)
-            #except:
-            #    print(f"Except for holdout {holdout_set}")
+                    for imputation in range(imputations):
+                        save_path = os.path.join(
+                            "./best_cv_params", 
+                            dataset_imp, 
+                            f"iter_{os.environ['SLURM_ARRAY_TASK_ID']}_holdout_{holdout_set}_imp_{imputation}.pickle"
+                        )
+                        if os.path.exists(save_path) and not os.path.isdir(save_path):
+                            with open(save_path, 'rb') as f:
+                                params = pickle.load(f)
+                        else:
+                            params = param_grids[model_index]
+                        print("Label: ", label, "predictors: ", predictors)
+
+                        train_imp, val_imp, test_imp = return_imputation(
+                            f'{dataset_imp}/holdout_{holdout_set}/val_{val_set}/m_{imputation}/', 
+                            label, predictors, train, test, val)
+                        train_imp = pd.concat([val_imp, train_imp])
+
+                        X_train, y_train_imp = train_imp[predictors], train_imp[label]
+                        X_test, y_test_imp = test_imp[predictors], test_imp[label]
+                        if use_smim and train_X_SMIM.shape[1] > 0:
+                            print(train_X_SMIM.shape)
+                            print(np.isnan(train_X_SMIM).any())
+                            print(X_train.values.shape)
+                            X_train = pd.DataFrame(np.concatenate([X_train.values, train_X_SMIM], axis=1))
+                            X_test = pd.DataFrame(np.concatenate([X_test.values, test_X_SMIM], axis=1))
+
+                        assert np.linalg.norm(y_train_imp - y_train) < 1e-3, \
+                            "Error: Label ordering is not consistent across imputations"
+                        assert np.linalg.norm(y_test_imp - y_test) < 1e-3, \
+                            "Error: Label ordering is not consistent across imputations"
+
+                        try:
+                            print("Starting try block")
+                            clf = GridSearchCV(model_initializer(), params, scoring=val_metric)
+                            print("X_train.shape", X_train.shape, "y_train_imp.shape", y_train_imp.shape)
+                            clf.fit(X_train, y_train_imp)
+                            print("done try block")
+                        except Exception as e:
+                            print("Acceptable error: ", repr(e))
+                        
+                        print(f"clf.cv_results_: {clf.cv_results_}")
+                        fit_times.append(clf.cv_results_['mean_fit_time'][clf.best_index_])
+
+                        try:
+                            imputation_train_probs[imputation] = clf.predict_proba(X_train)[:, 1]
+                            imputation_test_probs[imputation] = clf.predict_proba(X_test)[:, 1]
+                        except:
+                            imputation_train_probs[imputation] = clf.predict(X_train)
+                            imputation_test_probs[imputation] = clf.predict(X_test)
+
+                    # calculate ensembled metric across all imputations: 
+                    ensembled_train_probs = imputation_train_probs.mean(axis=0)
+                    ensembled_test_probs = imputation_test_probs.mean(axis=0)
+
+                for metric in METRIC_FN:
+                    train_metric_val = METRIC_FN[metric](y_train, ensembled_train_probs)
+                    test_metric_val = METRIC_FN[metric](y_test, ensembled_test_probs)
+
+                    metric_dict['num_imputations'] = metric_dict['num_imputations'] + [imputations]
+                    metric_dict['metric'] = metric_dict['metric'] + [metric]
+                    metric_dict['metric_value_train'] = metric_dict['metric_value_train'] + [train_metric_val]
+                    metric_dict['metric_value_test'] = metric_dict['metric_value_test'] + [test_metric_val]
+                    metric_dict['model_type'] = metric_dict['model_type'] + [model_initializer.__name__]
+                    metric_dict['missingness_handling'] = metric_dict['missingness_handling'] + [imputation_method]
+                    metric_dict['holdout_set'] = metric_dict['holdout_set'] + [holdout_set]
+                    #TODO: Change the mean below to a sum, because right now we're being overly generous to the baselines
+                    metric_dict['mean_fit_time'] = metric_dict['mean_fit_time'] + [np.mean(fit_times)]
+                    metric_dict['std_fit_time'] = metric_dict['std_fit_time'] + [np.std(fit_times)]
+                    metric_dict['dataset'] = metric_dict['dataset'] + [dataset_name]
+                    metric_dict['use_smim'] = metric_dict['use_smim'] + [use_smim]
+                    metric_dict['smim_time'] = metric_dict['smim_time'] + [SMIM_time]
+
+
+                    if slurm_iter is None:
+                        pd.DataFrame(metric_dict).to_csv(f'./full_baseline_results_many_clf_tmp_multi_{date.today()}_10_holdouts_{dataset_name}_{imputations}_imp_{imputation_method}_50_max_coef.csv',index=False)
+                    else:
+                        pd.DataFrame(metric_dict).to_csv(f'./parallelized_results/tmp_multi_{date.today()}_iter_{slurm_iter}_{imputation_method}_imp_{imputations}_imp_all_50_max_coef.csv',index=False)
+            except:
+                print(f"Except for holdout {holdout_set}")
     return pd.DataFrame(metric_dict)
 
 def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
@@ -249,7 +269,7 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
         'dataset': []
     }
     for holdout_set in holdouts: 
-        #try:
+        # try:
         for val_set in validations: 
             print(f"Holdout: {holdout_set}, val: {val_set}")
             train = pd.read_csv(f'{dataset}/devel_{holdout_set}_train_{val_set}{dataset_suffix}.csv')
@@ -285,7 +305,7 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
                 # one possible TODO is to select using 5-fold cross validation
                 # (this may require verifying whether all 5 train/val splits use the same imputation)
                 # using all folds for each imputation may increase the runtime of the full train/val/test pipeline non-trivially. 
-            #fit_times = []
+            fit_times = []
             for imputation in range(imputations):
                 X_train, X_val, X_test, y_train, y_val, y_test = get_train_test_binarized(
                     label, predictors, train, test, val, num_quantiles, 
@@ -335,12 +355,12 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
                 print("train_probs.shape", train_probs.shape)
                 imputation_train_probs[imputation] = train_probs[best_lambda]
                 imputation_test_probs[imputation] = test_probs[best_lambda]
-                #fit_times.append(fit_time)
+                fit_times.append(fit_time)
                 
 
             # calculate ensembled metric across all imputations: 
-            #ensembled_train_probs = imputation_train_probs.mean(axis=0)
-            #ensembled_test_probs = imputation_test_probs.mean(axis=0)
+            ensembled_train_probs = imputation_train_probs.mean(axis=0)
+            ensembled_test_probs = imputation_test_probs.mean(axis=0)
 
             def log_metric_vals(cur_train_probs, cur_test_probs, y_train, 
                                 y_test, fit_times, model_type):
@@ -359,13 +379,13 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
                     metric_dict['std_fit_time'] = metric_dict['std_fit_time'] + [np.std(fit_times)]
                     metric_dict['dataset'] = metric_dict['dataset'] + [dataset_name]
             
-            #log_metric_vals(ensembled_train_probs, ensembled_test_probs, y_train, y_test, fit_times, 'GAM_imputation')
+            log_metric_vals(ensembled_train_probs, ensembled_test_probs, y_train, y_test, fit_times, 'GAM_imputation')
 
             ######################################
             ### Missingness Indicator Approach ###
             ######################################
-            #if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
-            #    continue
+            if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
+                continue
 
             (train_no_overall, train_ind_overall, train_aug_overall, test_no, test_ind, test_aug, 
             y_train_no_overall, y_train_ind_overall, y_train_aug_overall, 
@@ -461,9 +481,9 @@ def get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
                 pd.DataFrame(metric_dict).to_csv(f'./full_baseline_results_many_clf_tmp_gam_{date.today()}_10_holdouts_{dataset_name}_{imputations}_imp_{imputation_method}_50_max_coef.csv',index=False)
             else:
                 pd.DataFrame(metric_dict).to_csv(f'./parallelized_results/tmp_gam_{date.today()}_iter_{slurm_iter}_{imputation_method}_imp_{imputations}_imp_all_50_max_coef.csv',index=False)
-        #except:
-        #    print("Except for", holdout_set, val_set)
-        #    continue
+        # except:
+            # print("Except for", holdout_set, val_set)
+            # continue
     return pd.DataFrame(metric_dict)
 
 
@@ -480,13 +500,13 @@ if __name__ == '__main__':
     ]
 
     param_grids = [
-        {'C':[0.01, 0.1, 1, 10], 'penalty': ['l2'], 'max_iter': [5_000], 'tol': [1e-2]},#, 'elasticnet')},
+        {'C':[0.01, 0.1, 1, 10], 'penalty': ['l2'], 'max_iter': [10_000], 'tol': [5e-2]},#, 'elasticnet')},
         {'n_estimators':[25, 50, 100, 200], 'criterion':("gini", "entropy")},
         {'n_estimators':[10, 25, 50, 100, 200], 'algorithm': ['SAMME']},
         {'max_depth':[3, 5, 7, 9, None], 'criterion':("gini", "entropy")},
         {
             'hidden_layer_sizes':[(50,), (100,), (200,), (50, 50), (50, 100), (100, 100), (100, 200), (200, 200)],
-            'tol': [1e-3],
+            'tol': [5e-2],
             'max_iter': [1000]
         },
         {
@@ -538,73 +558,92 @@ if __name__ == '__main__':
         for subsample in ['', '_0.25', '_0.5', '_0.75']:
             for ds_name in ['ADULT', 'BREAST_CANCER', 'MIMIC']:
     """
-    for imputation_method in ['MIWAE']:
-        for subsample in ['_0.5', '_0.75', '', '_0.25']:
-            for ds_name in ['CKD', 'PHARYNGITIS', 'FICO', 'HEART_DISEASE']:
-                ds_name = ds_name + subsample
-                print(f"Running for {imputation_method}, {ds_name}")
-                #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
-                if False and 'FICO' == ds_name:
-                    dataset = f'{dataset_base_path}/DATA/{ds_name}/distinct-missingness/'#'BREAST_CANCER'
-                else:
-                    dataset = f'{dataset_base_path}/DATA_REDUCED/{ds_name}/'#'BREAST_CANCER'
-                for train_rate in [0]:
-                    for test_rate in [0]:
-                        dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
-                        dataset_suffix = f''
+    for subsample in ['']:#, '_0.5', '_0.75', '_0.25']:
+        for imputation_method in ['MICE', 'Mean', 'MIWAE', 'MissForest']:
+        #for subsample in ['', '_0.5', '_0.75', '_0.25']:
+            for ds_name in ['MIMIC', 'ADULT', 'FICO', 'BREAST_CANCER', 'PHARYNGITIS', 'CKD', 'HEART_DISEASE']:
+                try:
+                    ds_name = ds_name + subsample
+                    print(f"Running for {imputation_method}, {ds_name}")
+                    #for ds_name in ['BREAST_CANCER', 'BREAST_CANCER_0.25', 'BREAST_CANCER_0.5', 'BREAST_CANCER_0.75']:
+                    if False and 'FICO' == ds_name:
+                        dataset = f'{dataset_base_path}/DATA/{ds_name}/distinct-missingness/'#'BREAST_CANCER'
+                    else:
+                        dataset = f'{dataset_base_path}/DATA_REDUCED/{ds_name}/'#'BREAST_CANCER'
+                    for train_rate in [0]:
+                        for test_rate in [0]:
+                            if os.path.exists(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv'):
+                                existing_res = pd.read_csv(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv')
+                                if (slurm_iter < 10) and existing_res.shape[0] == 48:
+                                    print(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv already exists!')
+                                    continue
+                                elif (slurm_iter < 10) and existing_res.shape[0] == 3:
+                                    print(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv already exists!')
+                                    continue
+                                else:
+                                    print("WARNING: File " + f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv' + f" already exists, but has length {existing_res.shape[0]}")
+                            dataset_imp = f'{dataset_base_path}/JON_IMPUTED_DATA/{ds_name}/{imputation_method}/train_per_{train_rate}/test_per_{test_rate}'#'BREAST_CANCER'
+                            dataset_suffix = f''
 
-                        if 'FICO' in ds_name:
-                            na_check = lambda x: x < -5
-                        else:
-                            na_check = lambda x: x.isna()
-
-                        if slurm_iter is None:
-                            gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
-                                        dataset_name=f'{ds_name}', imputations=imputations, na_check=na_check, imputation_method=imputation_method,
-                                        val_metric='auc' if 'BREAST' in ds_name else 'acc')
-                            res_df = get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset_imp, dataset_suffix,
-                                dataset_name=f'{ds_name}', imputation_method=imputation_method, imputations=imputations,
-                                val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy')
-                        else:
-
-                            
-                            res_df = pd.DataFrame()
-                            model_ind = (slurm_iter // len(holdouts)) % len(model_types)
-                            res_df = get_timing_and_accuracy_baselines([model_types[model_ind]], 
-                                        [param_grids[model_ind]], dataset, dataset_imp, dataset_suffix,
-                                        dataset_name=f'{ds_name}', imputation_method=imputation_method, 
-                                        imputations=imputations, holdouts=[holdouts[slurm_iter % len(holdouts)]],
-                                        val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy',
-                                        use_smim=(slurm_iter // (len(holdouts) * len(model_types))) < 1)
-
-                            # We only want to run the GAM bit num_holdouts times
-                            # rather than num_holdouts * num_baselines times
-                            if slurm_iter // len(holdouts) == 0:
-                                gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
-                                            dataset_name=f'{ds_name}', imputations=imputations, 
-                                            na_check=na_check, imputation_method=imputation_method,
-                                            holdouts=[holdouts[slurm_iter % len(holdouts)]],
-                                            val_metric='auc' if 'BREAST' in ds_name else 'acc')
+                            if 'FICO' in ds_name:
+                                na_check = lambda x: x < -5
                             else:
-                                gam_res_df = pd.DataFrame()
+                                na_check = lambda x: x.isna()
+
+                            if slurm_iter is None:
+                                gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
+                                            dataset_name=f'{ds_name}', imputations=imputations, na_check=na_check, imputation_method=imputation_method,
+                                            val_metric='auc' if 'BREAST' in ds_name else 'acc')
+                                res_df = get_timing_and_accuracy_baselines(model_types, param_grids, dataset, dataset_imp, dataset_suffix,
+                                    dataset_name=f'{ds_name}', imputation_method=imputation_method, imputations=imputations,
+                                    val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy')
+                            else:
+
+                                
+                                res_df = pd.DataFrame()
+                                model_ind = (slurm_iter // len(holdouts)) % len(model_types)
+                                res_df = get_timing_and_accuracy_baselines([model_types[model_ind]], 
+                                            [param_grids[model_ind]], dataset, dataset_imp, dataset_suffix,
+                                            dataset_name=f'{ds_name}', imputation_method=imputation_method, 
+                                            imputations=imputations, holdouts=[holdouts[slurm_iter % len(holdouts)]],
+                                            val_metric='roc_auc' if 'BREAST' in ds_name else 'accuracy',
+                                            use_smim=(slurm_iter // (len(holdouts) * len(model_types))) < 1)
+
+                                # We only want to run the GAM bit num_holdouts times
+                                # rather than num_holdouts * num_baselines times
+                                adding_gam = True
+                                if os.path.exists(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv'):
+                                    print(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv already exists!')
+                                    adding_gam = False
+                                if slurm_iter // len(holdouts) == 0 and adding_gam:
+                                    gam_res_df = get_timing_and_accuracy_gams(dataset, dataset_imp, dataset_suffix,
+                                                dataset_name=f'{ds_name}', imputations=imputations, 
+                                                na_check=na_check, imputation_method=imputation_method,
+                                                holdouts=[holdouts[slurm_iter % len(holdouts)]],
+                                                val_metric='auc' if 'BREAST' in ds_name else 'acc')
+                                else:
+                                    gam_res_df = pd.DataFrame()
 
 
-                        new_res = pd.concat([res_df, gam_res_df], axis=0)
-                        
-                        if slurm_iter is not None:
-                            new_res.to_csv(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv',index=False)
+                            new_res = pd.concat([res_df, gam_res_df], axis=0)
+                            
+                            if slurm_iter is not None:
+                                new_res.to_csv(f'./parallelized_results/baselines_iter_{slurm_iter}_{ds_name}_{imputation_method}.csv',index=False)
 
-                        if overall_df is None:
-                            overall_df = new_res
-                        else:
-                            print("res_df: ", res_df)
-                            print("overall_df: ", overall_df)
-                            overall_df = pd.concat([overall_df, new_res], axis=0)
+                            if overall_df is None:
+                                overall_df = new_res
+                            else:
+                                print("res_df: ", res_df)
+                                print("overall_df: ", overall_df)
+                                overall_df = pd.concat([overall_df, new_res], axis=0)
 
-                        if slurm_iter is None:
-                            overall_df.to_csv(f'./full_baseline_results_many_clf_{date.today()}_10_holdouts_{imputation_method}_imp_{imputations}_imp_50_max_coef.csv',index=False)
-                        else:
-                            overall_df.to_csv(f'./parallelized_results/baselines_{date.today()}_iter_{slurm_iter}_{imputations}_imp_all_50_max_coef.csv',index=False)
+                            if FOR_TIMING:
+                                if slurm_iter is None:
+                                    overall_df.to_csv(f'./full_baseline_results_many_clf_{date.today()}_10_holdouts_{imputation_method}_imp_{imputations}_imp_50_max_coef.csv',index=False)
+                                else:
+                                    overall_df.to_csv(f'./parallelized_results/baselines_{date.today()}_iter_{slurm_iter}_{imputations}_imp_all_50_max_coef.csv',index=False)
+                except:
+                    print(f"Skipping {imputation_method}, {ds_name} because of an error")
 
     '''for fico_vers in ['FICO_0.25', 'FICO_0.5', 'FICO_0.75']:
         dataset = f'{dataset_base_path}/DATA_REDUCED/{fico_vers}/'#'BREAST_CANCER'
