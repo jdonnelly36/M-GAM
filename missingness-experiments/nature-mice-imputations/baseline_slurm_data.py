@@ -29,6 +29,7 @@ parser.add_argument('--sparsity_metric', type=str, default='default', help='Spar
 parser.add_argument('--baseline_imputer', type=str, default='Mean', help='Baseline imputer')
 parser.add_argument('--baseline_aug_level', type=int, default=0, help='Baseline augmentation level, for baselines where we need to measure sparsity. 0, 1 (indicator), or 2(interaction) are options')
 parser.add_argument('--rerun', action='store_true', help='flag to force a rerun if files already exist. Without this flag, experiments are not repeated')
+parser.add_argument('--num_quantiles', type=int, default=8, help='Number of quantiles for binarization')
 
 # Parse the command line arguments
 args = parser.parse_args()
@@ -44,6 +45,10 @@ mice_augmentation_level = args.mice_augmentation_level
 sparsity_metric = args.sparsity_metric
 baseline_imputer = args.baseline_imputer
 baseline_aug_level = args.baseline_aug_level
+num_quantiles = args.num_quantiles
+
+if baseline_imputer == 'None':
+    baseline_imputer = None
 
 ### Immutable ###
 overall_mi_intercept = False
@@ -52,7 +57,6 @@ specific_mi_intercept = True
 specific_mi_ixn = True
 train_miss = 0
 test_miss = 0
-num_quantiles = 8
 use_distinct = True
 lambda_grid = [[20, 10, 5, 2, 1, 0.5, 0.4, 0.2, 0.1, 0.05, 0.02, 0.01, 0.005]]
 holdouts = np.arange(10)
@@ -135,12 +139,17 @@ def prefix_pre_imputed(dataset):
         return f'{prefix}distinct-missingness/'
     else: 
         return prefix
-
+def sparsity_by_cluster(cluster, coeffs_array): 
+    num_features = 0
+    for c in cluster.keys(): 
+        if (coeffs_array[cluster[c]] != 0).any(): 
+            num_features += 1
+    return num_features
 ###############################################
 
 # check if experiment has already been run: 
 
-results_path = f'experiment_data/{dataset}/{method}'
+results_path = f'experiment_data/{dataset}{q_str}/{method}'
 ## possibly-antiquated hyperparameters still needed to preserve file structure of experiment: 
 results_path = f'{results_path}/distinctness_{overall_mi_intercept}_{overall_mi_ixn}_{specific_mi_intercept}_{specific_mi_ixn}'
 if train_miss != 0 or test_miss != 0: 
@@ -205,6 +214,8 @@ sparsity_no_missing = np.zeros((len(holdouts), len(lambda_grid[0])))
 
 for holdout_set in holdouts: 
     for val_set in validations: 
+        if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
+            continue
         train = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_train_{val_set}{miss_str}.csv')
         val = pd.read_csv(prefix_pre_imputed(dataset)+f'devel_{holdout_set}_val_{val_set}{miss_str}.csv')
         test = pd.read_csv(prefix_pre_imputed(dataset) + f'holdout_{holdout_set}{miss_str}.csv')
@@ -226,10 +237,6 @@ for holdout_set in holdouts:
         ### Imputation approach ###
         ###########################
         if run_impute_experiments: 
-            if 'BREAST_CANCER' in dataset and val_set == 3 and holdout_set == 6: #missed run at this stage; will have to adjust for plotting as well
-                continue
-            if 'BREAST_CANCER_MAR_25' in dataset and val_set == 2 and holdout_set == 9: #missed run at this stage; will have to adjust for plotting as well
-                continue
             imputation_train_probs = np.zeros((len(imputations), train.shape[0] + val.shape[0]))
             imputation_test_probs = np.zeros((len(imputations), test.shape[0]))
 
@@ -255,7 +262,7 @@ for holdout_set in holdouts:
                 
                 # tune & fit logistic regression on data
                 clf = LogisticRegression(random_state=0)
-                grid_search = GridSearchCV(clf, smim_grid, cv=5)
+                grid_search = GridSearchCV(clf, smim_grid, cv=5, scoring=('accuracy' if metric != 'auc' else 'roc_auc'))
                 grid_search.fit(X_train, y_train)
                 
                 imputation_train_probs[imputation_idx] = grid_search.predict_proba(X_train)[:, 1]
@@ -272,8 +279,6 @@ for holdout_set in holdouts:
         ### Missingness Indicator Approach ###
         ######################################
         if run_indicator_experiments:
-            if val_set != validations[0]: #we can just use the first val_set; no need to rerun this for each validation
-                continue
 
             if method == 'SMIM': #TODO: add version for noreg here AND for imputation
                 #load non-binarized version of data, no imputation; replace all missing values with np.nan
@@ -305,14 +310,14 @@ for holdout_set in holdouts:
                 test_smim = np.concatenate([test_no, val_mask], axis=1)
 
                 clf = LogisticRegression(random_state=0)
-                grid_search = GridSearchCV(clf, smim_grid, cv=5)
+                grid_search = GridSearchCV(clf, smim_grid, cv=5, scoring=('accuracy' if metric != 'auc' else 'roc_auc'))
                 grid_search.fit(train_smim, y_train_no)
                 print("best params: ", grid_search.best_params_)
 
                 sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else -1 #not implemented for non-default
 
-                train_auc_indicator[holdout_set] = grid_search.score(train_smim, y_train_no)if metric == 'acc' else -1 #not implemented yet
-                test_auc_indicator[holdout_set] = grid_search.score(test_smim, y_test_no)if metric == 'acc' else -1 #not implemented yet
+                train_auc_indicator[holdout_set] = grid_search.score(train_smim, y_train_no) if (metric == 'acc' or metric == 'auc') else -1 #not implemented yet
+                test_auc_indicator[holdout_set] = grid_search.score(test_smim, y_test_no)if (metric == 'acc' or metric == 'auc') else -1 #not implemented yet
 
             else:
                 # binarize the non-binarized version of the data, filling in missing values with the mean or loading the mean imputations we made already and binarizing those
@@ -332,17 +337,18 @@ for holdout_set in holdouts:
                 test_use = binarized_augmented_data[baseline_aug_level + 3].copy()
                 y_train = binarized_augmented_data[6]
                 y_test = binarized_augmented_data[9]
+                cluster_no = binarized_augmented_data[12]
 
                 # tune & fit logistic regression on data w/o missingness indicators
                 clf = LogisticRegression(random_state=0)
-                grid_search = GridSearchCV(clf, smim_grid, cv=5)
+                grid_search = GridSearchCV(clf, smim_grid, cv=5, scoring=('accuracy' if metric != 'auc' else 'roc_auc'))
                 grid_search.fit(train_use, y_train)
                 print("best params: ", grid_search.best_params_)
 
-                sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else -1 #not implemented for non-default
+                sparsity_no_missing[holdout_set] = (grid_search.best_estimator_.coef_ !=0).sum() if sparsity_metric == 'default' else sparsity_by_cluster(cluster_no, grid_search.best_estimator_.coef_[0])
 
-                train_auc_indicator[holdout_set] = grid_search.score(train_use, y_train)if metric == 'acc' else -1 #not implemented yet
-                test_auc_indicator[holdout_set] = grid_search.score(test_use, y_test)if metric == 'acc' else -1 #not implemented yet
+                train_auc_indicator[holdout_set] = grid_search.score(train_use, y_train)if (metric == 'acc' or metric == 'auc') else -1 #not implemented yet
+                test_auc_indicator[holdout_set] = grid_search.score(test_use, y_test)if (metric == 'acc' or metric == 'auc') else -1 #not implemented yet
 
 #save data to csv: 
 

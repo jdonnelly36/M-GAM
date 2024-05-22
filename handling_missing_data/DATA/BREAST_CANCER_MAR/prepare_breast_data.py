@@ -325,8 +325,6 @@ for added_missingness_rate in [0.25, 0.5]:
 
 
     levels = [(col, sorted(breast_df[col].unique())) for col in sorted(cols_cat)]
-    with open("Breast_factor_levels.json", "w", encoding="UTF-8") as levelsfile:
-        json.dump(levels, levelsfile)
 
 
     # Some of the imputation code requires knowing which columns are categorical and ordinal, so we store this information.  We now include yes/no (or similar) columns in the list of categorical columns.
@@ -428,6 +426,9 @@ for added_missingness_rate in [0.25, 0.5]:
 
     with open(f'{missing_folder}/Breast_cancer_cols.json', "w", encoding="UTF-8") as colsfile:
         json.dump(idxs, colsfile)
+
+    with open(f'{missing_folder}/Breast_factor_levels.json', "w", encoding="UTF-8") as levelsfile:
+        json.dump(levels, levelsfile)
 
 
     # We also save the complete resulting dataset for later use.
