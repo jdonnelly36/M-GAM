@@ -1,6 +1,6 @@
-# Interpretable Machine Learning for Datasets with Missing Values
+# Interpretable Generalized Additive Models for Datasets with Missing Values
 
-This package contains the code used for `Interpretable Machine Learning for Datasets with Missing Values`.
+This package contains the code used for `Interpretable Generalized Additive Models for Datasets with Missing Values` (https://arxiv.org/abs/2412.02646).
 
 All package version information is available in `requirements.txt`.
 
