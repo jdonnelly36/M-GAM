@@ -1,6 +1,6 @@
 # Interpretable Machine Learning for Datasets with Missing Values
 
-This package contains the code used for `Interpretable Machine Learning for Datasets with Missing Values`. This code is intended for review purposes only.
+This package contains the code used for `Interpretable Machine Learning for Datasets with Missing Values`.
 
 All package version information is available in `requirements.txt`.
 
