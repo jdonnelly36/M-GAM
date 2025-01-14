@@ -35,6 +35,7 @@ exceptiongroup==1.2.0
 executing==1.2.0
 fancyimpute==0.7.0
 fastjsonschema==2.19.1
+fastsparsegams==0.1.2
 flake8==5.0.4
 flatbuffers==22.10.26
 fonttools==4.38.0
