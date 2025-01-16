@@ -264,6 +264,14 @@ class Binarizer:
         n_test, _ = test_df.shape
         train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
         train_no_missing, test_no_missing = {}, {}
+
+        # This will be a dictionary telling us which column indices correspond to which
+        # input variables
+        dataset_structure_map = {}
+        cur_new_col_index = 0
+
+        thresh_vals = []
+
         miss_val_cols = []
         for c in train_df.columns:
             if c == self.label:
@@ -272,6 +280,11 @@ class Binarizer:
             missing_col_name = f'{c} missing'
             missing_row_train = np.zeros(n_train)
             missing_row_test = np.zeros(n_test)
+            dataset_structure_map[c] = {}
+            dataset_structure_map[c]['intercepts'] = {}
+            dataset_structure_map[c]['interactions'] = {}
+            dataset_structure_map[c]['bins'] = []
+            
             for v in self.miss_vals:
                 if self.specific_mi_intercept:
                     new_col_name = f'{c} == {v}'
@@ -282,6 +295,10 @@ class Binarizer:
                     if new_row_train.sum() > 0 or new_row_test.sum() > 0: #has missingness
                         train_binned[new_col_name] = new_row_train
                         train_augmented_binned[new_col_name] = new_row_train
+                        dataset_structure_map[c]['intercepts'][v] = cur_new_col_index
+                        thresh_vals.append(-1)
+                        cur_new_col_index += 1
+                        
                         test_binned[new_col_name] = new_row_test
                         test_augmented_binned[new_col_name] = new_row_test
                         has_missing = True
@@ -291,6 +308,9 @@ class Binarizer:
                 if missing_row_train.sum() > 0 or missing_row_test.sum() > 0: #has missingness
                     train_binned[missing_col_name] = missing_row_train
                     train_augmented_binned[missing_col_name] = missing_row_train
+                    dataset_structure_map[c]['intercepts']['any'] = cur_new_col_index
+                    thresh_vals.append(-1)
+                    cur_new_col_index += 1
                     test_binned[missing_col_name] = missing_row_test
                     test_augmented_binned[missing_col_name] = missing_row_test
                     has_missing = True
@@ -300,9 +320,10 @@ class Binarizer:
             if c == self.label:
                 continue
             for v in list(train_df[c].quantile(self.quantiles).unique()):
-                if v in self.miss_vals:
+                if (v in self.miss_vals) or np.isnan(v):
                     continue
                 else:
+                    thresh_vals.append(v)
                     new_col_name = f'{c} <= {v}'
 
                     new_row_train = np.zeros(n_train)
@@ -311,6 +332,8 @@ class Binarizer:
                     train_no_missing[new_col_name] = new_row_train
                     train_binned[new_col_name] = new_row_train
                     train_augmented_binned[new_col_name] = new_row_train
+                    dataset_structure_map[c]['bins'] = dataset_structure_map[c]['bins'] + [cur_new_col_index]
+                    cur_new_col_index += 1
                     
                     new_row_test = np.zeros(n_test)
                     new_row_test[test_df[c] <= v] = 1
@@ -322,10 +345,12 @@ class Binarizer:
             if c == self.label:
                 continue
             for v in list(train_df[c].unique()):
-                if v in self.miss_vals:
+                if (v in self.miss_vals) or np.isnan(v):
                     continue
                 else: 
+                    thresh_vals.append(v)
                     new_col_name = f'{c} == {v}'
+                    # print(f"For col {new_col_name} adding {cur_new_col_index}")
 
                     new_row_train = np.zeros(n_train)
                     new_row_train[train_df[c] == v] = 1
@@ -333,6 +358,8 @@ class Binarizer:
                     train_no_missing[new_col_name] = new_row_train
                     train_binned[new_col_name] = new_row_train
                     train_augmented_binned[new_col_name] = new_row_train
+                    dataset_structure_map[c]['bins'] = dataset_structure_map[c]['bins'] + [cur_new_col_index]
+                    cur_new_col_index += 1
                     
                     new_row_test = np.zeros(n_test)
                     new_row_test[test_df[c] == v] = 1
@@ -367,6 +394,17 @@ class Binarizer:
                                     train_augmented_binned[new_col_name] = new_row_train
                                     test_augmented_binned[new_col_name] = new_row_test
 
+                                    if 'interactions' not in dataset_structure_map[c_inner]:
+                                        dataset_structure_map[c_inner]['interactions'] = {}
+                                    if c_outer not in dataset_structure_map[c_inner]['interactions']:
+                                        dataset_structure_map[c_inner]['interactions'][c_outer] = {}
+                                    if m_val not in dataset_structure_map[c_inner]['interactions'][c_outer]:
+                                        dataset_structure_map[c_inner]['interactions'][c_outer][m_val] = []
+
+                                    thresh_vals.append(v)
+                                    dataset_structure_map[c_inner]['interactions'][c_outer][m_val] = dataset_structure_map[c_inner]['interactions'][c_outer][m_val] + [cur_new_col_index]
+                                    cur_new_col_index += 1
+
                             missing_ixn_row_train[(self._nansafe_equals(train_df[c_outer],m_val)) & (train_df[c_inner] <= v)] = 1
                             missing_ixn_row_test[(self._nansafe_equals(test_df[c_outer],m_val)) & (test_df[c_inner] <= v)] = 1
                             missing_ixn_row_train[(self._nansafe_equals(train_df[c_outer],m_val)) & (train_df[c_inner].isin(self.miss_vals))] = 0
@@ -400,6 +438,17 @@ class Binarizer:
                                     train_augmented_binned[new_col_name] = new_row_train
                                     test_augmented_binned[new_col_name] = new_row_test
 
+                                    if 'interactions' not in dataset_structure_map[c_inner]:
+                                        dataset_structure_map[c_inner]['interactions'] = {}
+                                    if c_outer not in dataset_structure_map[c_inner]['interactions']:
+                                        dataset_structure_map[c_inner]['interactions'][c_outer] = {}
+                                    if m_val not in dataset_structure_map[c_inner]['interactions'][c_outer]:
+                                        dataset_structure_map[c_inner]['interactions'][c_outer][m_val] = []
+
+                                    thresh_vals.append(v)
+                                    dataset_structure_map[c_inner]['interactions'][c_outer][m_val] = dataset_structure_map[c_inner]['interactions'][c_outer][m_val] + [cur_new_col_index]
+                                    cur_new_col_index += 1
+
                             missing_ixn_row_train[(self._nansafe_equals(train_df[c_outer],m_val)) & (train_df[c_inner] == v)] = 1
                             missing_ixn_row_test[(self._nansafe_equals(test_df[c_outer],m_val)) & (test_df[c_inner] == v)] = 1
                             missing_ixn_row_train[(self._nansafe_equals(train_df[c_outer],m_val)) & (train_df[c_inner].isin(self.miss_vals))] = 0
@@ -427,6 +476,9 @@ class Binarizer:
         test_no_missing[self.label] = test_df[self.label]
         train_augmented_binned[self.label] = train_df[self.label]
         test_augmented_binned[self.label] = test_df[self.label]
+        
+        self.dataset_structure_map = dataset_structure_map
+        self.thresh_vals = thresh_vals
 
         return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != self.label]].values, 
                 pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != self.label]].values, 
