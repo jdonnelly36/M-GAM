@@ -8,7 +8,7 @@ This package contains the code used for `Interpretable Generalized Additive Mode
 
 ```bash
 git clone https://github.com/jdonnelly36/M-GAM.git
-cd M-GAM/python
+cd M-GAM
 pip install -r requirements.txt
 ```
 
