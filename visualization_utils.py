@@ -2,10 +2,8 @@ import pandas as pd
 import numpy as np
 from itertools import chain, combinations
 from matplotlib import pyplot as plt
-import matplotlib
 import seaborn as sns
 import os
-from itertools import chain, combinations
 
 
 class StepFunction:
