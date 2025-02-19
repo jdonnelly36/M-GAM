@@ -7,4 +7,3 @@ pandas==1.5.1
 seaborn==0.12.2
 scikit-learn==1.1.3
 scipy==1.9.3
-fastsparsegams==0.1.2
