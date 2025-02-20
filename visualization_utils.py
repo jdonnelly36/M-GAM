@@ -5,8 +5,15 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 import os
 
+def powerset(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
 
 class StepFunction:
+    """
+    Represents a step function defined by a set of x and y values.
+    Allows adding "cuts" to add a step to the function at specific x values.
+    """
     def __init__(self, x_list=[0, 1], y_list=[0, 0]):
         self.x_list = x_list
         self.y_list = y_list
@@ -15,16 +22,19 @@ class StepFunction:
         return f"X: {self.x_list}, Y: {self.y_list}"
 
     def __eq__(self, other):
-        if np.all(np.array(self.y_list) == 0) and np.all(np.array(other.y_list) == 0):
-            return True
-        if len(self.x_list) != len(other.x_list):
-            return False
-        
-        x_match = np.all(np.array(self.x_list) == np.array(other.x_list))
-        y_match = np.all(np.array(self.y_list) == np.array(other.y_list))
-        return x_match and y_match
+        """
+        Checks equality between two step functions.
+        Two step functions are equivalent if they both
+        represent a flat line at 0, or they have the exact same
+        set of steps.
+        """
+        return (
+            np.array_equal(self.x_list, other.x_list) and np.array_equal(self.y_list, other.y_list)
+            or (not np.any(self.y_list) and not np.any(other.y_list))
+        )
 
     def add_cut(self, new_x, new_y):
+        """Adds a step change to the function at a given x value."""
         if new_x in self.x_list:
             x_arr = np.array(self.x_list)
             y_arr = np.array(self.y_list)
@@ -46,169 +56,61 @@ class StepFunction:
             self.x_list = list(np.array(self.x_list + [new_x])[x_argsort])
             self.y_list = list(y_arr)
 
-def get_curve(dataset_structure_map, thresh_vals, coefs, range_by_var,
-             target_var='PercentTradesWBalance', missing_vars=(['ExternalRiskEstimate'], [-7]),
-             inters=True):
+def get_curve(dataset_structure_map, thresh_vals, coefs, range_by_var, target_var='PercentTradesWBalance', missing_vars=([], []), inters=True):
+    """
+    Constructs a step function representing the effect of a variable on the model.
+    """
     sf = StepFunction(range_by_var[target_var], [0, 0])
+    
     if target_var in missing_vars[0]:
         target_type_ind = missing_vars[0].index(target_var)
         target_type = missing_vars[1][target_type_ind]
-
         ind_of_interest = dataset_structure_map[target_var]['intercepts'][target_type]
-        return StepFunction(range_by_var[target_var], [coefs[ind_of_interest], coefs[ind_of_interest]])
-
+        return StepFunction(range_by_var[target_var], [coefs[ind_of_interest]] * 2)
+    
     for b in dataset_structure_map[target_var]['bins']:
         sf.add_cut(thresh_vals[b], coefs[b])
     
     if inters:
-        for other_var in dataset_structure_map[target_var]['interactions']:
+        for other_var, interactions in dataset_structure_map[target_var]['interactions'].items():
             if other_var in missing_vars[0]:
                 target_type_ind = missing_vars[0].index(other_var)
                 target_type = missing_vars[1][target_type_ind]
-
-                for b in dataset_structure_map[target_var]['interactions'][other_var][target_type]:
+                for b in interactions[target_type]:
                     sf.add_cut(thresh_vals[b], coefs[b])
-
+    
     return sf
 
-def binarize_according_to_train(train_df, test_df):
-    n_train, d_train = train_df.shape
-    n_test, d_test = test_df.shape
-    train_binned, train_augmented_binned, test_binned, test_augmented_binned = {}, {}, {}, {}
-    train_no_missing, test_no_missing = {}, {}
-    bin_map = {}
-    dataset_structure_map = {}
-    thresh_vals = []
-    cur_new_col_index = 0
-    missing_inds = []
-    for col_ind, c in enumerate(train_df.columns):
-        quantiles = train_df[c][train_df[c] > -7].quantile([0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]).unique()
-        bin_list = list(quantiles) + [-7, -8, -9]
-        dataset_structure_map[c] = {}
-        dataset_structure_map[c]['intercepts'] = {}
-        dataset_structure_map[c]['bins'] = []
-
-        if c == 'PoorRiskPerformance':
-            continue
-        for bin_ind, v in enumerate(bin_list):
-            thresh_vals.append(v)
-            bin_map[bin_ind] = col_ind
-            if v in [-7, -8, -9]:
-                dataset_structure_map[c]['intercepts'][v] = cur_new_col_index
-                missing_inds.append(v)
-                new_col_name = f'{c}_{v}'
-
-                new_row_train = np.zeros(n_train)
-                new_row_train[train_df[c] == v] = 1
-                train_binned[new_col_name] = new_row_train
-                train_augmented_binned[new_col_name] = new_row_train
-                
-                new_row_test = np.zeros(n_test)
-                new_row_test[test_df[c] == v] = 1
-                test_binned[new_col_name] = new_row_test
-                test_augmented_binned[new_col_name] = new_row_test
-            else:
-                dataset_structure_map[c]['bins'] = dataset_structure_map[c]['bins'] + [cur_new_col_index]
-                new_col_name = f'{c} <= {v}'
-
-                new_row_train = np.zeros(n_train)
-                new_row_train[train_df[c] <= v] = 1
-                new_row_train[train_df[c] <= -5] = 0
-                
-                train_no_missing[new_col_name] = new_row_train
-                train_binned[new_col_name] = new_row_train
-                train_augmented_binned[new_col_name] = new_row_train
-                
-                new_row_test = np.zeros(n_test)
-                new_row_test[test_df[c] <= v] = 1
-                new_row_test[test_df[c] <= -5] = 0
-                test_no_missing[new_col_name] = new_row_test
-                test_binned[new_col_name] = new_row_test
-                test_augmented_binned[new_col_name] = new_row_test
-            cur_new_col_index += 1
-    
-    for c_outer in train_df.columns:
-        dataset_structure_map[c_outer]['interactions'] = {}
-        if c_outer == 'PoorRiskPerformance':
-            continue
-        for m_val in [-7, -8, -9]:
-            for c_inner in train_df.columns:
-                if c_inner == c_outer:
-                    continue 
-                
-                if 'interactions' not in dataset_structure_map[c_inner]:
-                    dataset_structure_map[c_inner]['interactions'] = {}
-                if c_outer not in dataset_structure_map[c_inner]['interactions']:
-                    dataset_structure_map[c_inner]['interactions'][c_outer] = {}
-                if m_val not in dataset_structure_map[c_inner]['interactions'][c_outer]:
-                    dataset_structure_map[c_inner]['interactions'][c_outer][m_val] = []
-
-                quantiles = train_df[c_inner][train_df[c_inner] > -7].quantile([0.2, 0.4, 0.6, 0.8, 1]).unique()
-                for v in quantiles:
-                    if (v in [-7, -8, -9]) or c_inner == 'PoorRiskPerformance':
-                        continue
-                    else:
-                        thresh_vals.append(v)
-                        dataset_structure_map[c_inner]['interactions'][c_outer][m_val] = dataset_structure_map[c_inner]['interactions'][c_outer][m_val] + [cur_new_col_index]
-                        new_col_name = f'{c_outer}_missing_{m_val} & {c_inner} <= {v}'
-
-                        new_row_train = np.zeros(n_train)
-                        new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] <= v)] = 1
-                        new_row_train[(train_df[c_outer] == m_val) & (train_df[c_inner] <= -5)] = 0
-                        train_augmented_binned[new_col_name] = new_row_train
-
-                        new_row_test = np.zeros(n_test)
-                        new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] <= v)] = 1
-                        new_row_test[(test_df[c_outer] == m_val) & (test_df[c_inner] <= -5)] = 0
-                        test_augmented_binned[new_col_name] = new_row_test
-                        cur_new_col_index += 1
-    train_binned['PoorRiskPerformance'] = train_df['PoorRiskPerformance']
-    test_binned['PoorRiskPerformance'] = test_df['PoorRiskPerformance']
-    train_no_missing['PoorRiskPerformance'] = train_df['PoorRiskPerformance']
-    test_no_missing['PoorRiskPerformance'] = test_df['PoorRiskPerformance']
-    train_augmented_binned['PoorRiskPerformance'] = train_df['PoorRiskPerformance']
-    test_augmented_binned['PoorRiskPerformance'] = test_df['PoorRiskPerformance']
-    return pd.DataFrame(train_no_missing), pd.DataFrame(train_binned), pd.DataFrame(train_augmented_binned), \
-         pd.DataFrame(test_no_missing), pd.DataFrame(test_binned), pd.DataFrame(test_augmented_binned),\
-        bin_map, missing_inds, dataset_structure_map, thresh_vals
-
 def check_interesting_missingness(dataset_structure_map, coefs, inters=True):
-    miss_cols = []
-    miss_types = []
-    for v in dataset_structure_map:
+    """
+    Identifies variables where missing values contribute to model behavior.
+    """
+    miss_cols, miss_types = [], []
+    
+    for var, details in dataset_structure_map.items():
         if inters:
-            for v_inter in dataset_structure_map[v]['interactions']:
-                cur = dataset_structure_map[v]['interactions'][v_inter]
-                for m_type in cur:
-                    for val in cur[m_type]:
-                        if coefs[val] != 0:
-                            if v_inter in miss_cols:
-                                # Check if we already added this pattern
-                                prev_ind = miss_cols.index(v_inter)
-                                if miss_types[prev_ind] == m_type:
-                                    continue
-
+            for v_inter, inters_dict in details['interactions'].items():
+                for m_type, indices in inters_dict.items():
+                    if any(coefs[i] != 0 for i in indices):
+                        if (v_inter not in miss_cols) or (miss_types[miss_cols.index(v_inter)] != m_type):
                             miss_cols.append(v_inter)
                             miss_types.append(m_type)
-        for m_type in dataset_structure_map[v]['intercepts']:
-            coef = dataset_structure_map[v]['intercepts'][m_type]
-            if coefs[coef] != 0:
-                if v in miss_cols:
-                    # Check if we already added this pattern
-                    prev_ind = miss_cols.index(v)
-                    if miss_types[prev_ind] == m_type:
-                        continue
-                miss_cols.append(v)
-                miss_types.append(m_type)
+        
+        for m_type, coef_idx in details['intercepts'].items():
+            if coefs[coef_idx] != 0:
+                if (var not in miss_cols) or (miss_types[miss_cols.index(v)] != m_type):
+                    miss_cols.append(var)
+                    miss_types.append(m_type)
+    
     return miss_cols, miss_types
 
+
 def get_missingness_sets_for_model(dataset_structure_map, model_coef, inters=True):
+    """
+    Generates all possible sets of missingness scenarios affecting the model.
+    """
     possible_missing_vars = check_interesting_missingness(dataset_structure_map, model_coef, inters=inters)
     
-    def powerset(iterable):
-        s = list(iterable)
-        return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
-
     missingness_sets = [p for p in powerset(zip(possible_missing_vars[0], possible_missing_vars[1]))]
     shaped_missingness_sets = []
     for s in missingness_sets:
