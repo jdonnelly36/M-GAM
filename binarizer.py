@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 class Binarizer:
     def __init__(self, quantiles = [0.2, 0.4, 0.6, 0.8], label = 'Overall Survival Status', 
@@ -36,6 +35,14 @@ class Binarizer:
 
     def binarize_and_augment(self, train_df, test_df, imputed_train_df = None, 
                              imputed_test_df = None, validation_size = 0):
+        '''
+        Core binarization method for M-GAM. Takes a training and test set with missing values, 
+        bins features by training quantiles, and augments the dataset with missingness indicators and interactions.
+
+        Includes optional support for imputing missing values alongside having indicators and interactions, 
+        either by providing the dataset post-imputation alongside the dataset pre-imputation, or using 
+        imputations provided by self.imputer if self.imputer was set during initialization.
+        '''
         if imputed_train_df is not None and imputed_test_df is not None:
             return_tuple = self._imputed_binarize(train_df, test_df, imputed_train_df, imputed_test_df)
         elif self.imputer is not None:
@@ -47,27 +54,18 @@ class Binarizer:
         if validation_size == 0: 
             return return_tuple
         else:
-            train_no_missing, train_binned, train_augmented_binned, test_no_missing, test_binned, test_augmented_binned, train_labels, train_labels_binned, train_labels_augmented_binned, test_labels, test_labels_binned, test_labels_augmented_binned, no_clusters, bin_clusters, aug_clusters = return_tuple
-            n_train = train_no_missing.shape[0] - validation_size
-            val_no_missing = train_no_missing[n_train:]
-            val_binned = train_binned[n_train:]
+            train_augmented_binned, test_augmented_binned, train_labels_augmented_binned, test_labels_augmented_binned = return_tuple
+            n_train = train_augmented_binned.shape[0] - validation_size
             val_augmented_binned = train_augmented_binned[n_train:]
-            val_labels = train_labels[n_train:]
-            val_labels_binned = train_labels_binned[n_train:]
             val_labels_augmented_binned = train_labels_augmented_binned[n_train:]
-            train_no_missing = train_no_missing[:n_train]
-            train_binned = train_binned[:n_train]
             train_augmented_binned = train_augmented_binned[:n_train]
-            train_labels = train_labels[:n_train]
-            train_labels_binned = train_labels_binned[:n_train]
             train_labels_augmented_binned = train_labels_augmented_binned[:n_train]
-            return (train_no_missing, train_binned, train_augmented_binned, 
-                    val_no_missing, val_binned, val_augmented_binned, 
-                    test_no_missing, test_binned, test_augmented_binned, 
-                    train_labels, train_labels_binned, train_labels_augmented_binned,
-                    val_labels, val_labels_binned, val_labels_augmented_binned,
-                    test_labels, test_labels_binned, test_labels_augmented_binned,
-                    no_clusters, bin_clusters, aug_clusters)
+            return (train_augmented_binned, 
+                    val_augmented_binned, 
+                    test_augmented_binned, 
+                    train_labels_augmented_binned,
+                    val_labels_augmented_binned,
+                    test_labels_augmented_binned)
     
   
     def _imputed_binarize(self, train_df, test_df, imputed_train_df, imputed_test_df):
@@ -244,19 +242,10 @@ class Binarizer:
         train_augmented_binned[self.label] = train_df[self.label]
         test_augmented_binned[self.label] = test_df[self.label]
 
-        return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != self.label]].values, 
-                pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != self.label]].values, 
-                pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != self.label]].values,
-                pd.DataFrame(test_no_missing)[[c for c in test_no_missing.keys() if c != self.label]].values, 
-                pd.DataFrame(test_binned)[[c for c in test_binned.keys() if c != self.label]].values, 
+        return (pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != self.label]].values,
                 pd.DataFrame(test_augmented_binned)[[c for c in test_augmented_binned.keys() if c != self.label]].values, 
-                pd.DataFrame(train_no_missing)[self.label].values, 
-                pd.DataFrame(train_binned)[self.label].values, 
                 pd.DataFrame(train_augmented_binned)[self.label].values,
-                pd.DataFrame(test_no_missing)[self.label].values, 
-                pd.DataFrame(test_binned)[self.label].values, 
-                pd.DataFrame(test_augmented_binned)[self.label].values, 
-                no_clusters, bin_clusters, aug_clusters
+                pd.DataFrame(test_augmented_binned)[self.label].values
         )
     
     def _binarize(self, train_df, test_df):
@@ -480,17 +469,8 @@ class Binarizer:
         self.dataset_structure_map = dataset_structure_map
         self.thresh_vals = thresh_vals
 
-        return (pd.DataFrame(train_no_missing)[[c for c in train_no_missing.keys() if c != self.label]].values, 
-                pd.DataFrame(train_binned)[[c for c in train_binned.keys() if c != self.label]].values, 
-                pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != self.label]].values,
-                pd.DataFrame(test_no_missing)[[c for c in test_no_missing.keys() if c != self.label]].values, 
-                pd.DataFrame(test_binned)[[c for c in test_binned.keys() if c != self.label]].values, 
+        return (pd.DataFrame(train_augmented_binned)[[c for c in train_augmented_binned.keys() if c != self.label]].values,
                 pd.DataFrame(test_augmented_binned)[[c for c in test_augmented_binned.keys() if c != self.label]].values, 
-                pd.DataFrame(train_no_missing)[self.label].values, 
-                pd.DataFrame(train_binned)[self.label].values, 
                 pd.DataFrame(train_augmented_binned)[self.label].values,
-                pd.DataFrame(test_no_missing)[self.label].values, 
-                pd.DataFrame(test_binned)[self.label].values, 
-                pd.DataFrame(test_augmented_binned)[self.label].values, 
-                no_clusters, bin_clusters, aug_clusters
+                pd.DataFrame(test_augmented_binned)[self.label].values
         )
